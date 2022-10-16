@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Location {
     x: usize,
     y: usize,
@@ -104,5 +104,17 @@ impl Coordinator {
         }
 
         // println!("{:?}", lines.collect::<Vec<(usize, &str)>>());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Location;
+
+    #[test]
+    fn orthogonal_location_members_works() {
+        let m = Location::new(1, 1).orthogonal_neighbours();
+        let l = |x: usize, y: usize| Location::new(x, y);
+        assert_eq!(m, (Some(l(1, 0)), Some(l(2, 1)), Some(l(1, 2)), Some(l(0, 1))));
     }
 }
