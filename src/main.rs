@@ -1,44 +1,16 @@
-// No defined size.
-#[derive(Debug)]
-struct Superposition {
-    candidates: Vec<Tile>
-}
-
-impl Superposition {
-    fn is_collapsed(&self) -> bool {
-        return self.candidates.len() == 1;
-    }
-}
-
-#[derive(Debug)]
-enum Direction {
-    Up,
-    Right,
-    Down,
-    Left,
-    UpRight,
-    DownRight,
-    UpLeft,
-    DownLeft,
-}
-
-#[derive(Debug)]
-struct Tile {
-    contradictions: Vec<(Box<Tile>, Box<Tile>, Direction)>,
-    weight: f32,
-}
-
-#[derive(Debug)]
-struct Coordinator {
-    superpositions: Vec<Box<Superposition>>
-}
-
-impl Coordinator {
-    fn new() -> Self {
-        Coordinator { superpositions: vec![] }
-    }
-}
+// Modules in Rust: https://is.gd/gRhcqA
+// Modules Cheat Sheet: https://is.gd/WusVq8
+use wave_func_collapse::Coordinator;
 
 fn main() {
+    // S = Sea, C = Coast, L = Land
+    let sample = "\
+    S, S, S, S, S
+    C, S, C, S, S
+    L, C, L, C, C
+    L, L, L, L, L
+    L, L, L, L, L".to_string().replace(", ", "");
+
     let mut coord = Coordinator::new();
+    coord.process_sample(&sample);
 }
