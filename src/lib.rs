@@ -103,6 +103,12 @@ impl Coordinator {
         Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new() }
     }
 
+    pub fn collapse_once(&mut self) {
+        for superpos in &self.superpositions {
+
+        }
+    }
+
     pub fn process_sample(&mut self, s: &String) {
         let lines = s.lines().enumerate();
         let lines_copy = lines.clone();
@@ -119,11 +125,11 @@ impl Coordinator {
             for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
                 let neighbours = tmp_loc.orthogonal_neighbours();
-                let real_neighbours = neighbours.into_iter().filter_map(|nb| nb);
+                let unwrapped_neighbours = neighbours.into_iter().filter_map(|nb| nb);
 
-                let mut tmp_copy = lines.clone();
+                for (loc, dir) in unwrapped_neighbours {
+                    let mut tmp_copy = lines.clone();
 
-                for (loc, dir) in real_neighbours {
                     // Find the line.
                     if let Some((_, found_line)) = tmp_copy.find(|&e| e.0 == loc.y) {
                         // Find the character.
@@ -150,6 +156,10 @@ impl Coordinator {
 
     fn existing_entity(&mut self, id: &char) -> Option<&mut Entity> {
         self.entities.iter_mut().find(|ent| ent.identifier == *id)
+    }
+
+    pub fn entities_found(&self) -> usize {
+        self.entities.len()
     }
 }
 
@@ -182,5 +192,14 @@ mod tests {
         assert_eq!(c.existing_entity(&'A').is_some(), true);
         assert_eq!(c.existing_entity(&'B').is_some(), false);
         assert_eq!(copy, c.entities);
+    }
+
+    #[test]
+    fn entity_count_is_correct() {
+        let s = "LCS";
+        let mut c = Coordinator::new();
+        c.process_sample(&s.to_string());
+        println!("{:#?}", c.entities);
+        assert_eq!(c.entities.len(), 3);
     }
 }

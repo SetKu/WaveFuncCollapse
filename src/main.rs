@@ -9,4 +9,5 @@ fn main() {
     let sample: String = include_str!("sample.txt").to_string().replace(", ", "");
     let mut coord = Coordinator::new();
     coord.process_sample(&sample);
+    println!("{}", coord.entities_found());
 }
