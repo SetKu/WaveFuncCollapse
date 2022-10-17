@@ -4,22 +4,27 @@ struct Location {
     y: usize,
 }
 
-type OptionalLoc = Option<Location>;
-
 impl Location {
     fn new(x: usize, y: usize) -> Self {
         Location { x: x, y: y }
     }
 
     // Returns the top, right, down, left neighbours to a specified location.
-    fn orthogonal_neighbours(&self) -> (OptionalLoc, OptionalLoc, OptionalLoc, OptionalLoc) {
-        (
-            if self.y > 0 { Some(Self::new(self.x, self.y - 1)) } else { None }, 
-            Some(Self::new(self.x + 1, self.y)), 
-            Some(Self::new(self.x, self.y + 1)), 
-            if self.x > 0 { Some(Self::new(self.x - 1, self.y)) } else { None },
-        )
+    fn orthogonal_neighbours(&self) -> [Option<(Location, Direction)>; 4] {
+        use Direction::*;
+        [
+            if self.y > 0 { Some((Self::new(self.x, self.y - 1), Up)) } else { None }, 
+            Some((Self::new(self.x + 1, self.y), Right)), 
+            Some((Self::new(self.x, self.y + 1), Down)), 
+            if self.x > 0 { Some((Self::new(self.x - 1, self.y), Left)) } else { None },
+        ]
     }
+
+    // Here would be a good place to begin to implement diagonal neighbours analysis.
+    // As a thought, we could only assert in this case, having more info, that an
+    // entity is valid when next to a tile if its also next to one or both of its neighbours.
+    // The issue, I could immagine, however, with this more 'accurate' approach is that
+    // It would reduce the number of potential combinations.
 }
 
 impl std::fmt::Display for Location {
@@ -114,24 +119,24 @@ impl Coordinator {
             for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
                 let neighbours = tmp_loc.orthogonal_neighbours();
+                let real_neighbours = neighbours.into_iter().filter_map(|nb| nb);
 
-                use Direction::*;
+                let mut tmp_copy = lines.clone();
 
-                // Up Rule Analysis
-                if let Some(loc) = neighbours.0 {
-                    let mut tmp_copy = lines.clone();
-
+                for (loc, dir) in real_neighbours {
+                    // Find the line.
                     if let Some((_, found_line)) = tmp_copy.find(|&e| e.0 == loc.y) {
+                        // Find the character.
                         if let Some(found_ch) = found_line.chars().nth(loc.x) {
-                            // Use the existing entity.
                             let existing_entity = self.existing_entity(&found_ch);
-                            let validation = (c, found_ch, Up);
-
+                            let validation = (c, found_ch, dir);
+    
+                            // Use the existing entity.
                             if let Some(found_ent) = existing_entity {
                                 found_ent.add_unknown_validation(validation);
                                 continue;
                             }
-
+    
                             // Create a new entity.
                             let mut new_ent = Entity::new(c.clone());
                             new_ent.validations.push(validation);
@@ -156,6 +161,12 @@ mod tests {
     fn orthogonal_location_members_works() {
         let m = Location::new(1, 1).orthogonal_neighbours();
         let l = |x: usize, y: usize| Location::new(x, y);
-        assert_eq!(m, (Some(l(1, 0)), Some(l(2, 1)), Some(l(1, 2)), Some(l(0, 1))));
+        use crate::Direction::*;
+        assert_eq!(m, [
+            Some((l(1, 0), Up)), 
+            Some((l(2, 1), Right)), 
+            Some((l(1, 2), Down)), 
+            Some((l(0, 1), Left))
+        ]);
     }
 }
