@@ -45,7 +45,7 @@ impl Superposition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, std::clone::Clone, PartialEq)]
 enum Direction {
     Up,
     Right,
@@ -57,53 +57,96 @@ enum Direction {
     DownLeft,
 }
 
-#[derive(Debug)]
+#[derive(Debug, std::clone::Clone)]
 struct Entity {
-    contradictions: Vec<(Box<Entity>, Box<Entity>, Direction)>,
+    identifier: char,
+    validations: Vec<(char, char, Direction)>,
     weight: f32,
 }
 
-#[derive(Debug)]
-pub struct Coordinator {
-    superpositions: Vec<Box<Superposition>>
+// Generic syntax for implementations: https://is.gd/gYBL5c
+impl Entity {
+    fn new(id: char) -> Self {
+        Entity { identifier: id, validations: vec![], weight: 1.0 }
+    }
+
+    // Adds a validation only if it doesn't already existing in validations.
+    fn add_unknown_validation(&mut self, v: (char, char, Direction)) {
+        let mut iter = self.validations.iter();
+        let existingVal = iter.find(|&e| e.0 == v.0 && e.1 == v.1 && e.2 == v.2);
+        
+        if None == existingVal {
+            self.validations.push(v);
+        }
+    }
 }
 
+
+
+#[derive(Debug)]
+pub struct Coordinator {
+    superpositions: Vec<Box<Superposition>>,
+    width: u32,
+    height: u32,
+    entities: Vec<Entity>,
+}
+
+// Anonymous lifetimes ('_) are just syntax to indicate that the lifetime is implied.
+// https://is.gd/Qt1zJH
 impl Coordinator {
     pub fn new() -> Self {
-        Coordinator { superpositions: vec![] }
+        Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new() }
     }
 
     pub fn process_sample(&mut self, s: &String) {
         let lines = s.lines().enumerate();
         let lines_copy = lines.clone();
 
-        for (ix, line) in lines_copy {
+        self.height = lines.clone().count() as u32;
+        
+        if self.height != 0 {
+            self.width = lines.clone().next().unwrap().1.chars().count() as u32;
+        }
+
+        for (iy, line) in lines_copy {
             // Ampersand in paramter simply indicates an immediate derefence.
             // https://is.gd/iXvDC0
-            for (iy, c) in line.chars().enumerate() {
+            for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
                 // Location is consumed by the superposition.
                 let p = Superposition::new(tmp_loc);
                 let neighbours = p.location.orthogonal_neighbours();
 
-                // North
-                if let Some(loc) = neighbours.0 {
-                    println!("Checking out {}", loc);
+                use Direction::*;
 
+                // Up Rule Analysis
+                if let Some(loc) = neighbours.0 {
                     let mut tmp_copy = lines.clone();
 
                     if let Some((_, found_line)) = tmp_copy.find(|&e| e.0 == loc.y) {
                         if let Some(found_ch) = found_line.chars().nth(loc.x) {
-                            println!("Found character north of L{}C{} '{}'", ix, iy, found_ch);
+                            // Use the existing entity.
+                            let existing_entity = self.existing_entity(&found_ch);
+                            let validation = (c, found_ch, Up);
+
+                            if let Some(found_ent) = existing_entity {
+                                found_ent.add_unknown_validation(validation);
+                                continue;
+                            }
+
+                            // Create a new entity.
+                            let mut new_ent = Entity::new(c.clone());
+                            new_ent.validations.push(validation);
+                            self.entities.push(new_ent); // Consumption occurs!
                         }
                     }
                 }
-
-                // println!("{} L{}C{}", c, x, y);
             }
         }
+    }
 
-        // println!("{:?}", lines.collect::<Vec<(usize, &str)>>());
+    fn existing_entity(&mut self, id: &char) -> Option<&mut Entity> {
+        self.entities.iter_mut().find(|ent| ent.identifier == *id)
     }
 }
 
