@@ -62,7 +62,7 @@ enum Direction {
     DownLeft,
 }
 
-#[derive(Debug, std::clone::Clone)]
+#[derive(Debug, std::clone::Clone, PartialEq)]
 struct Entity {
     identifier: char,
     validations: Vec<(char, char, Direction)>,
@@ -128,7 +128,7 @@ impl Coordinator {
                     if let Some((_, found_line)) = tmp_copy.find(|&e| e.0 == loc.y) {
                         // Find the character.
                         if let Some(found_ch) = found_line.chars().nth(loc.x) {
-                            let existing_entity = self.existing_entity(&found_ch);
+                            let existing_entity = self.existing_entity(&c);
                             let validation = (c, found_ch, dir);
     
                             // Use the existing entity.
@@ -138,7 +138,7 @@ impl Coordinator {
                             }
     
                             // Create a new entity.
-                            let mut new_ent = Entity::new(c.clone());
+                            let mut new_ent = Entity::new(c);
                             new_ent.validations.push(validation);
                             self.entities.push(new_ent); // Consumption occurs!
                         }
@@ -156,6 +156,8 @@ impl Coordinator {
 #[cfg(test)]
 mod tests {
     use crate::Location;
+    use crate::Coordinator;
+    use crate::Entity;
 
     #[test]
     fn orthogonal_location_members_works() {
@@ -168,5 +170,17 @@ mod tests {
             Some((l(1, 2), Down)), 
             Some((l(0, 1), Left))
         ]);
+    }
+
+    // Tests whether getting an existing entity affects the entities vector itself:
+    // It shouldn't.
+    #[test]
+    fn existing_entity_independent() {
+        let mut c = Coordinator::new();
+        c.entities.push(Entity::new('A'));
+        let copy = c.entities.clone();
+        assert_eq!(c.existing_entity(&'A').is_some(), true);
+        assert_eq!(c.existing_entity(&'B').is_some(), false);
+        assert_eq!(copy, c.entities);
     }
 }
