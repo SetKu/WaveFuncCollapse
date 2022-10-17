@@ -35,11 +35,13 @@ impl std::fmt::Display for Location {
 
 // No defined size.
 #[derive(Debug)]
+#[allow(unused)]
 struct Superposition {
     location: Location,
     candidates: Vec<Entity>,
 }
 
+#[allow(unused)]
 impl Superposition {
     fn new(l: Location) -> Self {
         Superposition { location: l, candidates: vec![] }
@@ -51,6 +53,7 @@ impl Superposition {
 }
 
 #[derive(Debug, std::clone::Clone, PartialEq)]
+#[allow(unused)]
 enum Direction {
     Up,
     Right,
@@ -78,9 +81,9 @@ impl Entity {
     // Adds a validation only if it doesn't already existing in validations.
     fn add_unknown_validation(&mut self, v: (char, char, Direction)) {
         let mut iter = self.validations.iter();
-        let existingVal = iter.find(|&e| e.0 == v.0 && e.1 == v.1 && e.2 == v.2);
+        let existing_val = iter.find(|&e| e.0 == v.0 && e.1 == v.1 && e.2 == v.2);
         
-        if None == existingVal {
+        if None == existing_val {
             self.validations.push(v);
         }
     }
