@@ -87,6 +87,10 @@ impl Entity {
             self.validations.push(v);
         }
     }
+
+    fn increment_weight(&mut self, x: &f32) {
+        self.weight += *x;
+    }
 }
 
 
@@ -108,7 +112,8 @@ impl Coordinator {
 
     pub fn collapse_once(&mut self) {
         for superpos in &self.superpositions {
-
+            // Find superpos with lowest entropy and collapse it.
+            // Otherwise choose among those with the same entropy using weights.
         }
     }
 
@@ -143,6 +148,7 @@ impl Coordinator {
                             // Use the existing entity.
                             if let Some(found_ent) = existing_entity {
                                 found_ent.add_unknown_validation(validation);
+                                found_ent.increment_weight(&1.0);
                                 continue;
                             }
     
