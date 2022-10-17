@@ -38,7 +38,7 @@ impl std::fmt::Display for Location {
 #[allow(unused)]
 struct Superposition {
     location: Location,
-    candidates: Vec<Entity>,
+    candidates: Vec<Box<Entity>>,
 }
 
 #[allow(unused)]
@@ -97,7 +97,7 @@ impl Entity {
 
 #[derive(Debug)]
 pub struct Coordinator {
-    superpositions: Vec<Box<Superposition>>,
+    superpositions: Vec<Superposition>,
     width: u32,
     height: u32,
     entities: Vec<Entity>,
@@ -108,6 +108,17 @@ pub struct Coordinator {
 impl Coordinator {
     pub fn new() -> Self {
         Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new() }
+    }
+
+    pub fn populate_superpositions(&mut self) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let loc = Location::new(x as usize, y as usize);
+                let mut superpos = Superposition::new(loc);
+                superpos.candidates = self.entities.clone().into_iter().map(|e| Box::new(e)).collect();
+                self.superpositions.push(superpos);
+            }
+        }
     }
 
     pub fn collapse_once(&mut self) {
@@ -161,6 +172,8 @@ impl Coordinator {
                 }
             }
         }
+
+        println!("{:#?}", self.entities);
     }
 
     fn existing_entity(&mut self, id: &char) -> Option<&mut Entity> {
@@ -169,6 +182,10 @@ impl Coordinator {
 
     pub fn entities_found(&self) -> usize {
         self.entities.len()
+    }
+
+    pub fn superpositions_count(&self) -> usize {
+        self.superpositions.len()
     }
 }
 
@@ -208,7 +225,15 @@ mod tests {
         let s = "LCS";
         let mut c = Coordinator::new();
         c.process_sample(&s.to_string());
-        println!("{:#?}", c.entities);
         assert_eq!(c.entities.len(), 3);
+    }
+
+    #[test]
+    fn populate_superpositions_works() {
+        let s = "LCS";
+        let mut c = Coordinator::new();
+        c.process_sample(&s.to_string());
+        c.populate_superpositions();
+        assert_eq!(c.superpositions_count(), 3);
     }
 }
