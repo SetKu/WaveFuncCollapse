@@ -113,9 +113,7 @@ impl Coordinator {
             // https://is.gd/iXvDC0
             for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
-                // Location is consumed by the superposition.
-                let p = Superposition::new(tmp_loc);
-                let neighbours = p.location.orthogonal_neighbours();
+                let neighbours = tmp_loc.orthogonal_neighbours();
 
                 use Direction::*;
 
