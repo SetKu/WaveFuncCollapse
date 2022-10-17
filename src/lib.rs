@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 #[derive(Debug, PartialEq)]
 struct Location {
     x: usize,
@@ -25,6 +27,8 @@ impl Location {
     // entity is valid when next to a tile if its also next to one or both of its neighbours.
     // The issue, I could immagine, however, with this more 'accurate' approach is that
     // It would reduce the number of potential combinations.
+    //
+    // ... Circling back to this, isn't this already handled by orthogonal analysis?
 }
 
 impl std::fmt::Display for Location {
@@ -38,7 +42,7 @@ impl std::fmt::Display for Location {
 #[allow(unused)]
 struct Superposition {
     location: Location,
-    candidates: Vec<Box<Entity>>,
+    candidates: Vec<Rc<Entity>>,
 }
 
 #[allow(unused)]
@@ -111,11 +115,14 @@ impl Coordinator {
     }
 
     pub fn populate_superpositions(&mut self) {
+        // Reference counters in Rust: https://doc.rust-lang.org/book/ch15-04-rc.html
+        let candidate_refs: Vec<Rc<Entity>> = self.entities.clone().into_iter().map(|c| Rc::new(c)).collect();
+
         for x in 0..self.width {
             for y in 0..self.height {
                 let loc = Location::new(x as usize, y as usize);
                 let mut superpos = Superposition::new(loc);
-                superpos.candidates = self.entities.clone().into_iter().map(|e| Box::new(e)).collect();
+                superpos.candidates = candidate_refs.clone();
                 self.superpositions.push(superpos);
             }
         }
@@ -172,8 +179,6 @@ impl Coordinator {
                 }
             }
         }
-
-        println!("{:#?}", self.entities);
     }
 
     fn existing_entity(&mut self, id: &char) -> Option<&mut Entity> {
