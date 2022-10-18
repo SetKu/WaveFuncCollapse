@@ -1,6 +1,8 @@
-use std::{rc::Rc, fmt::Error};
+use std::rc::Rc;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+pub mod errors;
+use errors::*;
 
 #[derive(Debug, PartialEq, std::clone::Clone)]
 struct Location {
@@ -136,7 +138,7 @@ impl Coordinator {
         }
     }
 
-    pub fn collapse_once(&mut self) -> Result<(), Error> {
+    pub fn collapse_once(&mut self) -> Result<(), WaveError> {
         let mut lowests: Vec<&mut Superposition> = Vec::new();
 
         for superpos in &mut self.superpositions {
@@ -164,7 +166,7 @@ impl Coordinator {
         }
 
         if lowests.len() == 0 {
-            return Err(Error::default());
+            return Err(WaveError::no_uncollapsed_superpositions());
         }
 
         let mut rng = thread_rng();
@@ -173,7 +175,7 @@ impl Coordinator {
 
         if chosen_sp.candidates.is_empty() {
             // This is a contradiction!
-            return Err(Error::default());
+            return Err(WaveError::contradiction());
         }
 
         // Choose a weighted random entity from the possible candidates for the superposition.
@@ -182,7 +184,47 @@ impl Coordinator {
         chosen_sp.candidates.clear();
         chosen_sp.candidates.push(entity);
 
+        let neighbours = chosen_sp.location.orthogonal_neighbours();
+
+        // Start propogating ripples!
+        for validation in chosen_sp.candidates.first().unwrap().validations.clone() {
+            for neighbour in &neighbours {
+                if let Some((pos, dir)) = neighbour {
+                    if let Some(found_sp) = self.superposition_for(&pos) {
+                        let mut indexes_removed = 0;
+
+                        for i in 0..found_sp.candidates.len() {
+                            let candidate = &found_sp.candidates[i - indexes_removed];
+
+                            if candidate.identifier == validation.1 {
+                                if validation.2 == *dir {
+                                    // This is a valid candidate.
+                                    continue;
+                                }
+                            }
+
+                            println!("Found contradiction: {:?} {:?} {:?}", validation, candidate, dir);
+
+                            // The candidate is invalid at this point.
+                            found_sp.candidates.remove(i - indexes_removed);
+                            indexes_removed += 1;
+                        }
+                    }
+                }
+            }
+        }
+
         return Ok(());
+    }
+
+    fn superposition_for(&mut self, pos: &Location) -> Option<&mut Superposition> {
+        for sp in self.superpositions.iter_mut() {
+            if sp.location == *pos {
+                return Some(sp);
+            }
+        }
+
+        None
     }
 
     fn all_collapsed(&self) -> bool {
@@ -195,7 +237,8 @@ impl Coordinator {
         return true;
     }
 
-    pub fn collapse_all(&mut self) -> Result<(), Error> {
+    pub fn collapse_all(&mut self) -> Result<(), WaveError> {
+        let threshold = 1;
         let mut failures = 0;
 
         while !self.all_collapsed() {
@@ -204,13 +247,14 @@ impl Coordinator {
             if let Err(_) = res {
                 failures += 1;
 
-                if failures > 20 {
-                    return Err(Error::default());
+                if failures > threshold {
+                    return Err(WaveError::threshhold(threshold));
                 }
 
                 // The algorithm needs to be restarted (keeping 
                 // the same rules) to try for a different outcome.
                 self.populate_superpositions();
+                println!("{}", self.get_rep());
             }
         }
 

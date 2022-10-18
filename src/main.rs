@@ -12,7 +12,7 @@ fn main() {
     coord.populate_superpositions();
     
     match coord.collapse_all() {
-        Err(e) => println!("{}", e),
+        Err(e) => println!("Found Error: {}", e),
         Ok(_) => println!("{}", coord.get_rep()),
     }
 }
