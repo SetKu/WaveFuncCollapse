@@ -1,5 +1,7 @@
-S, S, S, S, S
-C, S, C, S, S
-L, C, L, C, C
-L, L, L, L, L
-L, L, L, L, L
+L, C, S, S, S, S, S
+L, C, C, S, C, S, S
+C, L, C, C, C, C, C
+S, C, C, L, L, L, L
+S, S, C, L, L, L, L
+S, S, S, C, C, C, C
+S, S, S, S, S, S, S

@@ -9,10 +9,11 @@ fn main() {
     let sample: String = include_str!("sample.txt").to_string().replace(", ", "");
     let mut coord = Coordinator::new();
     coord.process_sample(&sample);
+    coord.set_dimensions(5, 5);
     coord.populate_superpositions();
     
-    match coord.collapse_all() {
+    match coord.collapse_all(true) {
         Err(e) => println!("Found Error: {}", e),
-        Ok(_) => println!("{}", coord.get_rep()),
+        Ok(_) => println!("Final Output:\n\n{}", coord.get_rep()),
     }
 }

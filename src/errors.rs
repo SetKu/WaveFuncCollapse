@@ -39,7 +39,7 @@ impl fmt::Display for WaveError {
       use WaveErrorTypes::*;
 
       let str = match self.data {
-        ThresholdBreach(t) => format!("The threshold ({}) for allowed contradictions has been reached.", t),
+        ThresholdBreach(t) => format!("The threshold ({}) for allowed contradictions (attempts) has been reached.", t),
         NoUncollapsedSuperpositions => "No uncollapsed superpositions available to collapse.".to_string(),
         Contradiction => "There was a contradiction during a collapse.".to_string(),
       };

@@ -62,6 +62,10 @@ impl Superposition {
     fn entropy(&self) -> usize {
         return self.candidates.len();
     }
+
+    fn candidate_id_strings(&self) -> Vec<String> {
+        self.candidates.iter().map(|a| a.identifier.to_string()).collect::<Vec<String>>()
+    }
 }
 
 #[derive(Debug, std::clone::Clone, PartialEq)]
@@ -185,26 +189,31 @@ impl Coordinator {
         chosen_sp.candidates.push(entity);
 
         let neighbours = chosen_sp.location.orthogonal_neighbours();
+        let validations = chosen_sp.candidates.first().unwrap().validations.clone();
 
         // Start propogating ripples!
-        for validation in chosen_sp.candidates.first().unwrap().validations.clone() {
-            for neighbour in &neighbours {
-                if let Some((pos, dir)) = neighbour {
-                    if let Some(found_sp) = self.superposition_for(&pos) {
-                        let mut indexes_removed = 0;
+        for neighbour in &neighbours {
+            if let Some((pos, dir)) = neighbour {
+                if let Some(found_sp) = self.superposition_for(&pos) {
+                    let mut indexes_removed = 0;
 
-                        for i in 0..found_sp.candidates.len() {
+                    for i in 0..found_sp.candidates.len() {
+                        let mut found_valid = false;
+
+                        // Try to match the candidate to a valid rule.
+                        for validation in &validations {
                             let candidate = &found_sp.candidates[i - indexes_removed];
 
                             if candidate.identifier == validation.1 {
                                 if validation.2 == *dir {
                                     // This is a valid candidate.
-                                    continue;
+                                    found_valid = true;
+                                    break;
                                 }
                             }
+                        }
 
-                            println!("Found contradiction: {:?} {:?} {:?}", validation, candidate, dir);
-
+                        if !found_valid {
                             // The candidate is invalid at this point.
                             found_sp.candidates.remove(i - indexes_removed);
                             indexes_removed += 1;
@@ -237,25 +246,44 @@ impl Coordinator {
         return true;
     }
 
-    pub fn collapse_all(&mut self) -> Result<(), WaveError> {
-        let threshold = 1;
+    pub fn collapse_all(&mut self, show_output: bool) -> Result<(), WaveError> {
+        let threshold = 1000;
         let mut failures = 0;
 
+        let mut iteration = 0;
         while !self.all_collapsed() {
             let res = self.collapse_once();
 
             if let Err(_) = res {
                 failures += 1;
 
-                if failures > threshold {
+                if failures > threshold - 1 {
                     return Err(WaveError::threshhold(threshold));
                 }
 
                 // The algorithm needs to be restarted (keeping 
                 // the same rules) to try for a different outcome.
                 self.populate_superpositions();
-                println!("{}", self.get_rep());
+
+                iteration = 0;
+                assert!(false);
             }
+
+            if show_output {
+                // ANSI Escape Codes: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+                let rep = self.get_rep();
+                println!("\x1B7Attempt {} Iteration {}:\n{}", failures + 1, iteration + 1, &rep);
+
+                // for i in 0..(rep.lines().count() + 2) {
+                //     print!("\x1B[1A\x1B[0G\x1B[J");
+                // }
+
+                // print!("\x1B7");
+
+                std::thread::sleep(std::time::Duration::new(0, 6u32 * 10u32.pow(8)));
+            }
+
+            iteration += 1;
         }
 
         Ok(())
@@ -345,6 +373,11 @@ impl Coordinator {
         }
         
         return rep;
+    }
+
+    pub fn set_dimensions(&mut self, w: u32, h: u32) {
+        self.width = w;
+        self.height = h;
     }
 }
 
