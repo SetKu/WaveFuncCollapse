@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::ops::{Deref, DerefMut};
+use std::{rc::Rc, fmt::Error};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 #[derive(Debug, PartialEq)]
 struct Location {
@@ -53,6 +56,10 @@ impl Superposition {
 
     fn is_collapsed(&self) -> bool {
         return self.candidates.len() == 1;
+    }
+
+    fn entropy(&self) -> usize {
+        return self.candidates.len();
     }
 }
 
@@ -128,11 +135,47 @@ impl Coordinator {
         }
     }
 
-    pub fn collapse_once(&mut self) {
-        for superpos in &self.superpositions {
+    pub fn collapse_once(&mut self) -> Result<(), Error> {
+        let mut lowests: Vec<&mut Superposition> = Vec::new();
+
+        for superpos in &mut self.superpositions {
+            if superpos.is_collapsed() {
+                continue;
+            }
+
             // Find superpos with lowest entropy and collapse it.
             // Otherwise choose among those with the same entropy using weights.
+            if lowests.len() == 0 {
+                lowests.push(superpos);
+                continue;
+            }
+
+            let old = lowests.first().unwrap().entropy();
+            let new = superpos.entropy();
+
+            if old > new {
+                lowests.clear();
+            }
+
+            if old >= new {
+                lowests.push(superpos);
+            }
         }
+
+        if lowests.len() == 0 {
+            return Err(Error::default());
+        }
+
+        let mut rng = thread_rng();
+        // Choose a random superposition among those with equal low entropy.
+        let mut chosen_sp = lowests.choose_mut(&mut rng).unwrap();
+        // Choose a weighted random entity from the possible candidates for the superposition.
+        let entity = chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone();
+        // Clear the superposition's entities and then add the chosen entity as the only one.
+        chosen_sp.candidates.clear();
+        chosen_sp.candidates.push(entity);
+
+        return Ok(());
     }
 
     pub fn process_sample(&mut self, s: &String) {
@@ -240,5 +283,16 @@ mod tests {
         c.process_sample(&s.to_string());
         c.populate_superpositions();
         assert_eq!(c.superpositions_count(), 3);
+    }
+
+    #[test]
+    fn collapse_once_works() {
+        let s = "LCS";
+        let mut c = Coordinator::new();
+        c.process_sample(&s.to_string());
+        c.populate_superpositions();
+        let err = c.collapse_once().is_err();
+        assert!(!err);
+        assert!(c.superpositions.iter().any(|x| x.is_collapsed()));
     }
 }

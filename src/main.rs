@@ -10,4 +10,5 @@ fn main() {
     let mut coord = Coordinator::new();
     coord.process_sample(&sample);
     coord.populate_superpositions();
+    coord.collapse_once();
 }
