@@ -33,6 +33,16 @@ impl Location {
     // It would reduce the number of potential combinations.
     //
     // ... Circling back to this, isn't this already handled by orthogonal analysis?
+
+    fn diagonal_neighbours(&self) -> [Option<(Location, Direction)>; 4] {
+        use Direction::*;
+        [
+            if self.y > 0 && self.x > 0 { Some((Self::new(self.x - 1, self.y - 1), UpLeft)) } else { None }, 
+            if self.y > 0 { Some((Self::new(self.x + 1, self.y - 1), UpRight)) } else { None },  
+            Some((Self::new(self.x + 1, self.y - 1), DownRight)), 
+            if self.x > 0 { Some((Self::new(self.x - 1, self.y - 1), DownLeft)) } else { None },
+        ]
+    }
 }
 
 impl std::fmt::Display for Location {
