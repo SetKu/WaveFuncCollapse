@@ -1,9 +1,8 @@
-use std::ops::{Deref, DerefMut};
 use std::{rc::Rc, fmt::Error};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, std::clone::Clone)]
 struct Location {
     x: usize,
     y: usize,
@@ -41,7 +40,7 @@ impl std::fmt::Display for Location {
 }
 
 // No defined size.
-#[derive(Debug)]
+#[derive(Debug, std::clone::Clone)]
 #[allow(unused)]
 struct Superposition {
     location: Location,
@@ -122,6 +121,8 @@ impl Coordinator {
     }
 
     pub fn populate_superpositions(&mut self) {
+        self.superpositions.clear();
+
         // Reference counters in Rust: https://doc.rust-lang.org/book/ch15-04-rc.html
         let candidate_refs: Vec<Rc<Entity>> = self.entities.clone().into_iter().map(|c| Rc::new(c)).collect();
 
@@ -168,7 +169,13 @@ impl Coordinator {
 
         let mut rng = thread_rng();
         // Choose a random superposition among those with equal low entropy.
-        let mut chosen_sp = lowests.choose_mut(&mut rng).unwrap();
+        let chosen_sp = lowests.choose_mut(&mut rng).unwrap();
+
+        if chosen_sp.candidates.is_empty() {
+            // This is a contradiction!
+            return Err(Error::default());
+        }
+
         // Choose a weighted random entity from the possible candidates for the superposition.
         let entity = chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone();
         // Clear the superposition's entities and then add the chosen entity as the only one.
@@ -176,6 +183,38 @@ impl Coordinator {
         chosen_sp.candidates.push(entity);
 
         return Ok(());
+    }
+
+    fn all_collapsed(&self) -> bool {
+        for sp in &self.superpositions {
+            if !sp.is_collapsed() {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    pub fn collapse_all(&mut self) -> Result<(), Error> {
+        let mut failures = 0;
+
+        while !self.all_collapsed() {
+            let res = self.collapse_once();
+
+            if let Err(_) = res {
+                failures += 1;
+
+                if failures > 20 {
+                    return Err(Error::default());
+                }
+
+                // The algorithm needs to be restarted (keeping 
+                // the same rules) to try for a different outcome.
+                self.populate_superpositions();
+            }
+        }
+
+        Ok(())
     }
 
     pub fn process_sample(&mut self, s: &String) {
@@ -234,6 +273,34 @@ impl Coordinator {
 
     pub fn superpositions_count(&self) -> usize {
         self.superpositions.len()
+    }
+
+    pub fn get_rep(&self) -> String {
+        let mut rep = String::new();
+        let mut sps_copy = self.superpositions.clone();
+        sps_copy.sort_by_key(|sp| sp.location.x);
+        let mut sps_organized: Vec<Vec<Superposition>> = Vec::new();
+
+        for _ in 0..self.height as usize {
+            sps_organized.push(Vec::new());
+        }
+
+        for sp in sps_copy {
+            sps_organized[sp.location.y].push(sp);
+        }
+
+        for line in sps_organized {
+            for sp in line {
+                let chars_iter = sp.candidates.into_iter().map(|c| c.identifier.to_string());
+                let cand_strs = chars_iter.collect::<Vec<String>>();
+                let str = format!("({}) ", cand_strs.concat());
+                rep.push_str(&str);
+            }
+
+            rep.push_str("\n");
+        }
+        
+        return rep;
     }
 }
 
