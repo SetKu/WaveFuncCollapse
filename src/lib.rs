@@ -39,8 +39,8 @@ impl Location {
         [
             if self.y > 0 && self.x > 0 { Some((Self::new(self.x - 1, self.y - 1), UpLeft)) } else { None }, 
             if self.y > 0 { Some((Self::new(self.x + 1, self.y - 1), UpRight)) } else { None },  
-            Some((Self::new(self.x + 1, self.y - 1), DownRight)), 
-            if self.x > 0 { Some((Self::new(self.x - 1, self.y - 1), DownLeft)) } else { None },
+            Some((Self::new(self.x + 1, self.y + 1), DownRight)), 
+            if self.x > 0 { Some((Self::new(self.x - 1, self.y + 1), DownLeft)) } else { None },
         ]
     }
 }
@@ -53,13 +53,11 @@ impl std::fmt::Display for Location {
 
 // No defined size.
 #[derive(Debug, std::clone::Clone)]
-#[allow(unused)]
 struct Superposition {
     location: Location,
     candidates: Vec<Rc<Entity>>,
 }
 
-#[allow(unused)]
 impl Superposition {
     fn new(l: Location) -> Self {
         Superposition { location: l, candidates: vec![] }
@@ -73,13 +71,12 @@ impl Superposition {
         return self.candidates.len();
     }
 
-    fn candidate_id_strings(&self) -> Vec<String> {
-        self.candidates.iter().map(|a| a.identifier.to_string()).collect::<Vec<String>>()
-    }
+    // fn candidate_id_strings(&self) -> Vec<String> {
+    //     self.candidates.iter().map(|a| a.identifier.to_string()).collect::<Vec<String>>()
+    // }
 }
 
 #[derive(Debug, std::clone::Clone, PartialEq)]
-#[allow(unused)]
 enum Direction {
     Up,
     Right,
@@ -127,13 +124,14 @@ pub struct Coordinator {
     width: u32,
     height: u32,
     entities: Vec<Entity>,
+    entities_lock: Option<Vec<Rc<Entity>>>,
 }
 
 // Anonymous lifetimes ('_) are just syntax to indicate that the lifetime is implied.
 // https://is.gd/Qt1zJH
 impl Coordinator {
     pub fn new() -> Self {
-        Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new() }
+        Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new(), entities_lock: None }
     }
 
     pub fn populate_superpositions(&mut self) {
@@ -150,6 +148,8 @@ impl Coordinator {
                 self.superpositions.push(superpos);
             }
         }
+
+        self.entities_lock = Some(candidate_refs);
     }
 
     pub fn collapse_once(&mut self) -> Result<(), WaveError> {
@@ -198,7 +198,8 @@ impl Coordinator {
         chosen_sp.candidates.clear();
         chosen_sp.candidates.push(entity);
 
-        let neighbours = chosen_sp.location.orthogonal_neighbours();
+        let mut neighbours = chosen_sp.location.orthogonal_neighbours().to_vec();
+        neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
         let validations = chosen_sp.candidates.first().unwrap().validations.clone();
 
         // Start propogating ripples!
@@ -256,10 +257,14 @@ impl Coordinator {
         return true;
     }
 
-    pub fn collapse_all(&mut self, show_output: bool) -> Result<(), WaveError> {
-        let threshold = 1000;
-        let mut failures = 0;
+    pub fn collapse_all(&mut self, show_output: bool, interval: std::time::Duration) -> Result<(), WaveError> {
+        let threshold = (self.width * self.height).pow(2);
 
+        if show_output {
+            println!("Set attempt threshold of {}.", threshold);
+        }
+
+        let mut failures = 0;
         let mut iteration = 0;
         while !self.all_collapsed() {
             let res = self.collapse_once();
@@ -276,12 +281,11 @@ impl Coordinator {
                 self.populate_superpositions();
 
                 iteration = 0;
-                assert!(false);
             }
 
             if show_output {
                 // ANSI Escape Codes: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
-                let rep = self.get_rep();
+                let rep = self.get_rep(false);
                 println!("\x1B7Attempt {} Iteration {}:\n{}", failures + 1, iteration + 1, &rep);
 
                 // for i in 0..(rep.lines().count() + 2) {
@@ -290,7 +294,7 @@ impl Coordinator {
 
                 // print!("\x1B7");
 
-                std::thread::sleep(std::time::Duration::new(0, 6u32 * 10u32.pow(8)));
+                std::thread::sleep(interval);
             }
 
             iteration += 1;
@@ -299,7 +303,8 @@ impl Coordinator {
         Ok(())
     }
 
-    pub fn process_sample(&mut self, s: &String) {
+    pub fn process_sample(&mut self, mut s: String) {
+        s = s.replace(", ", "");
         let lines = s.lines().enumerate();
         let lines_copy = lines.clone();
 
@@ -314,7 +319,8 @@ impl Coordinator {
             // https://is.gd/iXvDC0
             for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
-                let neighbours = tmp_loc.orthogonal_neighbours();
+                let mut neighbours = tmp_loc.orthogonal_neighbours().to_vec();
+                neighbours.append(&mut tmp_loc.diagonal_neighbours().to_vec());
                 let unwrapped_neighbours = neighbours.into_iter().filter_map(|nb| nb);
 
                 for (loc, dir) in unwrapped_neighbours {
@@ -357,7 +363,7 @@ impl Coordinator {
         self.superpositions.len()
     }
 
-    pub fn get_rep(&self) -> String {
+    pub fn get_rep(&self, clean: bool) -> String {
         let mut rep = String::new();
         let mut sps_copy = self.superpositions.clone();
         sps_copy.sort_by_key(|sp| sp.location.x);
@@ -371,11 +377,25 @@ impl Coordinator {
             sps_organized[sp.location.y].push(sp);
         }
 
+        let entity_lock_count = self.entities_lock.clone().unwrap_or(Vec::new()).len();
+
         for line in sps_organized {
             for sp in line {
                 let chars_iter = sp.candidates.into_iter().map(|c| c.identifier.to_string());
-                let cand_strs = chars_iter.collect::<Vec<String>>();
-                let str = format!("({}) ", cand_strs.concat());
+                let mut cand_strs = chars_iter.collect::<Vec<String>>();
+
+                if !clean {
+                    for _ in cand_strs.len()..entity_lock_count {
+                        cand_strs.push(" ".to_string());
+                    }
+
+                    let str = format!("({}) ", cand_strs.concat());
+                    rep.push_str(&str);
+                    continue;
+                }
+
+                // Clean branch.
+                let str = format!("{} ", cand_strs.concat());
                 rep.push_str(&str);
             }
 
@@ -426,7 +446,7 @@ mod tests {
     fn entity_count_is_correct() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(&s.to_string());
+        c.process_sample(s.to_string());
         assert_eq!(c.entities.len(), 3);
     }
 
@@ -434,7 +454,7 @@ mod tests {
     fn populate_superpositions_works() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(&s.to_string());
+        c.process_sample(s.to_string());
         c.populate_superpositions();
         assert_eq!(c.superpositions_count(), 3);
     }
@@ -443,7 +463,7 @@ mod tests {
     fn collapse_once_works() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(&s.to_string());
+        c.process_sample(s.to_string());
         c.populate_superpositions();
         let err = c.collapse_once().is_err();
         assert!(!err);

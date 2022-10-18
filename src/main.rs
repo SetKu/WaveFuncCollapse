@@ -6,14 +6,16 @@ use wave_func_collapse::Coordinator;
 
 fn main() {
     // S = Sea, C = Coast, L = Land
-    let sample: String = include_str!("sample.txt").to_string().replace(", ", "");
+    let sample: String = include_str!("sample.txt").to_string();
+
     let mut coord = Coordinator::new();
-    coord.process_sample(&sample);
-    coord.set_dimensions(5, 5);
+    coord.process_sample(sample);
+    coord.set_dimensions(10, 10);
     coord.populate_superpositions();
     
-    match coord.collapse_all(true) {
+    let interval = std::time::Duration::new(0, 0);
+    match coord.collapse_all(true, interval) {
         Err(e) => println!("Found Error: {}", e),
-        Ok(_) => println!("Final Output:\n\n{}", coord.get_rep()),
+        Ok(_) => println!("Final Output:\n\n{}", coord.get_rep(true)),
     }
 }

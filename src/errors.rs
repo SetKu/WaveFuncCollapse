@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum WaveErrorTypes {
-  ThresholdBreach(i32),
+  ThresholdBreach(u32),
   NoUncollapsedSuperpositions,
   Contradiction,
 }
@@ -19,7 +19,7 @@ impl WaveError {
     WaveError { data: t }
   }
 
-  pub fn threshhold(t: i32) -> Self {
+  pub fn threshhold(t: u32) -> Self {
     WaveError { data: WaveErrorTypes::ThresholdBreach(t) }
   }
 
