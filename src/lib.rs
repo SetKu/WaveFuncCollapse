@@ -78,14 +78,59 @@ impl Superposition {
 
 #[derive(Debug, std::clone::Clone, PartialEq)]
 enum Direction {
+    UpLeft = 0,
     Up,
-    Right,
-    Down,
-    Left,
     UpRight,
+    Right,
     DownRight,
-    UpLeft,
+    Down,
     DownLeft,
+    Left,
+}
+
+impl Direction {
+    // fn from_int(i: u8) -> Self {
+    //     use Direction::*;
+    //     match i {
+    //         0 => UpLeft,
+    //         1 => Up,
+    //         2 => UpRight,
+    //         3 => Right,
+    //         4 => DownRight,
+    //         5 => Down,
+    //         6 => DownLeft,
+    //         7 => Left,
+    //         _ => UpLeft,
+    //     }
+    // }
+
+    // fn all() -> [Self; 8] {
+    //     use Direction::*;
+    //     [
+    //         UpLeft,
+    //         Up,
+    //         UpRight,
+    //         Right,
+    //         DownRight,
+    //         Down,
+    //         DownLeft,
+    //         Left,
+    //     ]
+    // }
+
+    fn rotate_90(&self) -> Direction {
+        use Direction::*;
+        match self {
+            UpLeft => UpRight,
+            UpRight => DownRight,
+            DownRight => DownLeft,
+            DownLeft => UpLeft,
+            Up => Right,
+            Right => Down,
+            Down => Left,
+            Left => Up,
+        }
+    }
 }
 
 #[derive(Debug, std::clone::Clone, PartialEq)]
@@ -303,7 +348,7 @@ impl Coordinator {
         Ok(())
     }
 
-    pub fn process_sample(&mut self, mut s: String) {
+    pub fn process_sample(&mut self, mut s: String, transform: bool) {
         s = s.replace(", ", "");
         let lines = s.lines().enumerate();
         let lines_copy = lines.clone();
@@ -349,6 +394,31 @@ impl Coordinator {
                 }
             }
         }
+
+        // Rotate and reflect the rules in all 
+        // validations if transforms are enabled!
+        if transform {
+            for ent in &mut self.entities {
+                let vals_copy = ent.validations.clone();
+                for val in vals_copy {
+                    // Mirror/reflect the validation.
+                    let new1 = (val.1, val.0, val.2.clone());
+                    ent.add_unknown_validation(new1);
+
+                    // Get the rotated validations.
+                    for i in 0..4 {
+                        let mut dir = val.2.clone();
+
+                        for _ in 0..i {
+                            dir = dir.rotate_90();
+                        }
+
+                        let new2 = (val.0, val.1, dir);
+                        ent.add_unknown_validation(new2);
+                    }
+                }
+            }
+        } 
     }
 
     fn existing_entity(&mut self, id: &char) -> Option<&mut Entity> {
@@ -446,7 +516,7 @@ mod tests {
     fn entity_count_is_correct() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(s.to_string());
+        c.process_sample(s.to_string(), true);
         assert_eq!(c.entities.len(), 3);
     }
 
@@ -454,7 +524,7 @@ mod tests {
     fn populate_superpositions_works() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(s.to_string());
+        c.process_sample(s.to_string(), true);
         c.populate_superpositions();
         assert_eq!(c.superpositions_count(), 3);
     }
@@ -463,7 +533,7 @@ mod tests {
     fn collapse_once_works() {
         let s = "LCS";
         let mut c = Coordinator::new();
-        c.process_sample(s.to_string());
+        c.process_sample(s.to_string(), true);
         c.populate_superpositions();
         let err = c.collapse_once().is_err();
         assert!(!err);
