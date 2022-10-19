@@ -1,9 +1,16 @@
-S, S, S, S, S, S, C, C, S
-C, S, C, S, S, C, L, L, C
-L, C, L, C, C, L, L, L, L
-L, L, C, L, L, L, L, L, L
-C, L, L, L, C, C, C, L, L
-S, C, C, C, S, S, S, C, C
-S, S, S, S, S, C, S, S, S
-S, C, C, C, C, L, C, C, C
-C, L, L, L, L, L, L, L, L
+L, L, L, L, L
+C, L, L, L, C
+S, C, L, C, S
+S, S, C, S, S
+C, S, S, S, C
+C, S, C, S, C
+C, S, S, S, C
+S, S, C, S, S
+S, C, L, C, S
+C, L, L, L, C
+L, L, L, L, L
+C, L, L, L, C
+S, C, L, C, S
+S, S, C, S, S
+S, S, S, S, S
+S, C, C, C, S

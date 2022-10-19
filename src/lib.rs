@@ -170,13 +170,27 @@ pub struct Coordinator {
     height: u32,
     entities: Vec<Entity>,
     entities_lock: Option<Vec<Rc<Entity>>>,
+    diagonals: bool,
+    use_weights: bool,
 }
 
 // Anonymous lifetimes ('_) are just syntax to indicate that the lifetime is implied.
 // https://is.gd/Qt1zJH
 impl Coordinator {
     pub fn new() -> Self {
-        Coordinator { superpositions: vec![], width: 0, height: 0, entities: Vec::new(), entities_lock: None }
+        Coordinator { 
+            superpositions: vec![], 
+            width: 0, 
+            height: 0, 
+            entities: Vec::new(), 
+            entities_lock: None, 
+            diagonals: false,
+            use_weights: false,
+        }
+    }
+
+    pub fn set_diagonals(&mut self, d: bool) {
+        self.diagonals = d;
     }
 
     pub fn populate_superpositions(&mut self) {
@@ -238,19 +252,35 @@ impl Coordinator {
         }
 
         // Choose a weighted random entity from the possible candidates for the superposition.
-        let entity = chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone();
+        let entity = {
+            if self.use_weights {
+                chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone()
+            } else {
+                chosen_sp.candidates.choose(&mut rng).unwrap().clone()
+            }
+        };
+
         // Clear the superposition's entities and then add the chosen entity as the only one.
         chosen_sp.candidates.clear();
         chosen_sp.candidates.push(entity);
 
         let mut neighbours = chosen_sp.location.orthogonal_neighbours().to_vec();
-        neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
+        
+        if self.diagonals {
+            neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
+        }
+
         let validations = chosen_sp.candidates.first().unwrap().validations.clone();
 
         // Start propogating ripples!
         for neighbour in &neighbours {
             if let Some((pos, dir)) = neighbour {
                 if let Some(found_sp) = self.superposition_for(&pos) {
+                    if found_sp.is_collapsed() {
+                        // No need to reduce this superpositions entropy.
+                        continue;
+                    }
+                    
                     let mut indexes_removed = 0;
 
                     for i in 0..found_sp.candidates.len() {
@@ -264,6 +294,7 @@ impl Coordinator {
                                 if validation.2 == *dir {
                                     // This is a valid candidate.
                                     found_valid = true;
+                                    
                                     break;
                                 }
                             }
@@ -280,6 +311,10 @@ impl Coordinator {
         }
 
         return Ok(());
+    }
+
+    pub fn set_use_weights(&mut self, wt: bool) {
+        self.use_weights = wt;
     }
 
     fn superposition_for(&mut self, pos: &Location) -> Option<&mut Superposition> {
@@ -365,7 +400,11 @@ impl Coordinator {
             for (ix, c) in line.chars().enumerate() {
                 let tmp_loc = Location::new(ix, iy);
                 let mut neighbours = tmp_loc.orthogonal_neighbours().to_vec();
-                neighbours.append(&mut tmp_loc.diagonal_neighbours().to_vec());
+                
+                if self.diagonals {
+                    neighbours.append(&mut tmp_loc.diagonal_neighbours().to_vec());
+                }
+
                 let unwrapped_neighbours = neighbours.into_iter().filter_map(|nb| nb);
 
                 for (loc, dir) in unwrapped_neighbours {
