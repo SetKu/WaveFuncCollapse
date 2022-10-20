@@ -49,13 +49,16 @@ fn main() {
     let mut coord = Coordinator::new();
     coord.set_diagonals(d);
     coord.set_use_weights(wt);
-    coord.process_sample(sample, t);
+    coord.process_sample(sample.clone(), t);
     coord.set_dimensions(w, h);
     coord.populate_superpositions();
     
     let interval = std::time::Duration::new(0, 10_u32 * 10_u32.pow(7));
     match coord.collapse_all(true, interval) {
         Err(e) => println!("Found Error: {}", e),
-        Ok(_) => println!("Final Output:\n\n{}", coord.get_rep(true)),
+        Ok(_) => {
+            println!("Input:\n\n{}", sample.replace(", ", " "));
+            println!("Output:\n\n{}", coord.get_rep(true));
+        },
     }
 }
