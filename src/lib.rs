@@ -13,29 +13,40 @@ struct Location {
 }
 
 impl Location {
-    fn new(x: i32, y: i32) -> Self {
+    fn new_i32(x: i32, y: i32) -> Self {
         Location { x: x, y: y }
+    }
+
+    fn new_usize(x: usize, y: usize) -> Self {
+        Location { x: x as i32, y: y as i32 }
     }
     
     // Returns the top, right, down, left neighbours to a specified location.
-    fn pos_orthogonal_neighbours(&self) -> [Option<(Location, Direction)>; 4] {
+    fn orthogonal_neighbours(&self) -> [(Location, Direction); 4] {
         use Direction::*;
         [
-        if self.y > 0 { Some((Self::new(self.x, self.y - 1), Up)) } else { None }, 
-        Some((Self::new(self.x + 1, self.y), Right)), 
-        Some((Self::new(self.x, self.y + 1), Down)), 
-        if self.x > 0 { Some((Self::new(self.x - 1, self.y), Left)) } else { None },
+            (Self::new_i32(self.x, self.y - 1), Up),
+            (Self::new_i32(self.x + 1, self.y), Right),
+            (Self::new_i32(self.x, self.y + 1), Down),
+            (Self::new_i32(self.x - 1, self.y), Left),
         ]
     }
     
-    fn diagonal_neighbours(&self) -> [Option<(Location, Direction)>; 4] {
+    fn diagonal_neighbours(&self) -> [(Location, Direction); 4] {
         use Direction::*;
         [
-        if self.y > 0 && self.x > 0 { Some((Self::new(self.x - 1, self.y - 1), UpLeft)) } else { None }, 
-        if self.y > 0 { Some((Self::new(self.x + 1, self.y - 1), UpRight)) } else { None },  
-        Some((Self::new(self.x + 1, self.y + 1), DownRight)), 
-        if self.x > 0 { Some((Self::new(self.x - 1, self.y + 1), DownLeft)) } else { None },
+            (Self::new_i32(self.x - 1, self.y - 1), UpLeft),
+            (Self::new_i32(self.x + 1, self.y - 1), UpRight),
+            (Self::new_i32(self.x + 1, self.y + 1), DownRight),
+            (Self::new_i32(self.x - 1, self.y + 1), DownLeft),
         ]
+    }
+
+    fn all_neighbours(&self) -> Vec<(Location, Direction)> {
+        self.orthogonal_neighbours()
+            .into_iter()
+            .chain(self.diagonal_neighbours().into_iter())
+            .collect::<Vec<(Location, Direction)>>()
     }
 }
 
@@ -133,7 +144,11 @@ impl Coordinator {
     pub fn create_rules<T>(&mut self, sample: Vec<Vec<T>>, item_size: u32) -> Result<&Vec<Entity>, WaveError> where T: Hash {
         for y in 0..sample.len() {
             for x in 0..sample[y].len() {
+                let item = &sample[y][x];
+                let loc = Location::new_usize(x, y);
+                let neighbours = loc.all_neighbours();
 
+                
             }
         }
         
