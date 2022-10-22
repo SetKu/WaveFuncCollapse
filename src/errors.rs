@@ -3,47 +3,22 @@ use std::error::Error;
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub enum WaveErrorTypes {
-  ThresholdBreach(u32),
-  NoUncollapsedSuperpositions,
+pub enum WaveError {
   Contradiction,
+  InvalidSample,
 }
-
-#[derive(Debug, Clone)]
-pub struct WaveError {
-  data: WaveErrorTypes,
-}
-
-impl WaveError {
-  pub fn new(t: WaveErrorTypes) -> Self {
-    WaveError { data: t }
-  }
-
-  pub fn threshhold(t: u32) -> Self {
-    WaveError { data: WaveErrorTypes::ThresholdBreach(t) }
-  }
-
-  pub fn no_uncollapsed_superpositions() -> Self {
-    WaveError { data: WaveErrorTypes::NoUncollapsedSuperpositions }
-  }
-
-  pub fn contradiction() -> Self {
-    WaveError { data: WaveErrorTypes::Contradiction }
-  }
-}
-
-impl Error for WaveError { }
 
 impl fmt::Display for WaveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      use WaveErrorTypes::*;
+      use WaveError::*;
 
-      let str = match self.data {
-        ThresholdBreach(t) => format!("The threshold ({}) for allowed contradictions (attempts) has been reached.", t),
-        NoUncollapsedSuperpositions => "No uncollapsed superpositions available to collapse.".to_string(),
-        Contradiction => "There was a contradiction during a collapse.".to_string(),
+      let str = match self {
+        Contradiction => "There was a contradiction during a collapse.",
+        InvalidSample => "The sample provided was invalid. The item_size might not have been a factor or the sample could have been empty."
       };
 
-      write!(f, "{}", str)
+      write!(f, "{}", str.to_string())
     }
 }
+
+impl Error for WaveError { }
