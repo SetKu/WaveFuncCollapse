@@ -23,7 +23,8 @@ fn main() {
     }
 
     let mut coord = Coordinator::new();
-    coord.create_rules(chars_dimensional, 2);
+    coord.create_rules(chars_dimensional, 2).expect("Creating the rules for the sample failed.");
+    coord.populate_superpositions(6, 6);
 
     // let mut w = 5_u32;
     // let mut h = 5_u32;

@@ -16,6 +16,10 @@ impl Location {
         Location { x: x, y: y }
     }
 
+    fn new_u32(x: u32, y: u32) -> Self {
+        Location { x: x as i32, y: y as i32 }
+    }
+
     fn new_usize(x: usize, y: usize) -> Self {
         Location { x: x as i32, y: y as i32 }
     }
@@ -101,7 +105,7 @@ impl <T> Entity<T> where T: PartialEq + Clone {
 #[derive(Debug, Clone)]
 struct Superposition<T> where T: PartialEq + Clone {
     location: Location,
-    candidates: Vec<Rc<Entity<T>>>,
+    candidates: Vec<Rc<Entity<Vec<T>>>>,
 }
 
 impl <T> Superposition<T> where T: PartialEq + Clone {
@@ -120,16 +124,14 @@ impl <T> Superposition<T> where T: PartialEq + Clone {
 
 
 pub struct Coordinator<T> where T: PartialEq + Clone {
-    superpositions: Vec<Superposition<Vec<T>>>,
+    superpositions: Vec<Superposition<T>>,
     entities: Vec<Entity<Vec<T>>>,
     pub use_diagonals: bool,
     pub use_weights: bool,
     pub use_transforms: bool,
 }
 
-// Anonymous lifetimes ('_) are just syntax to indicate that the lifetime is implied.
-// https://is.gd/Qt1zJH
-impl <T> Coordinator<T> where T: PartialEq + Clone {
+impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
     pub fn new() -> Self {
         Coordinator { 
             superpositions: vec![], 
@@ -139,6 +141,26 @@ impl <T> Coordinator<T> where T: PartialEq + Clone {
             use_transforms: true,
         }
     }
+
+
+    pub fn populate_superpositions(&mut self, width: u32, height: u32) {
+        self.superpositions.clear();
+
+        let entities_lock: Vec<Rc<Entity<Vec<T>>>> = self.entities
+            .iter()
+            .map(|e| Rc::new(e.clone()))
+            .collect();
+
+        for y in 0..height {
+            for x in 0..width {
+                let location = Location::new_u32(x, y);
+                let mut new_superposition: Superposition<T> = Superposition::new(location);
+                new_superposition.candidates = entities_lock.clone();
+                self.superpositions.push(new_superposition);
+            }
+        }
+    }
+
     
     pub fn create_rules(&mut self, sample: Vec<Vec<T>>, item_size: usize) -> Result<&Vec<Entity<Vec<T>>>, WaveError> {
         let sample_y_len = sample.len();
@@ -177,6 +199,8 @@ impl <T> Coordinator<T> where T: PartialEq + Clone {
             }
         }
 
+        self.entities.clear();
+
         for y in 0..total_vertical_items {
             for x in 0..total_horizontal_items {
                 let item = &all_items[y][x];
@@ -198,13 +222,21 @@ impl <T> Coordinator<T> where T: PartialEq + Clone {
                             .find(|&e| e.0 == neighbour_x_pos);
 
                         if let Some(neighbour_item) = neighbour_item_opt {
-                            let neighbour_item_copy = neighbour_item.1.clone().into_iter().map(|i| i.clone()).collect::<Vec<T>>();
+                            let item_copy = item
+                                .clone()
+                                .into_iter()
+                                .map(|i| i.clone())
+                                .collect::<Vec<T>>();
+                            let neighbour_item_copy = neighbour_item.1
+                                .clone()
+                                .into_iter()
+                                .map(|i| i.clone())
+                                .collect::<Vec<T>>();
                             let rule = (neighbour_item_copy, neighbour.1);
 
-                            if let Some(existing_entity) = self.existing_entity(&rule.0) {
+                            if let Some(existing_entity) = self.existing_entity(&item_copy) {
                                 existing_entity.add_rule(rule);
                             } else {
-                                let item_copy = item.clone().into_iter().map(|i| i.clone()).collect::<Vec<T>>();
                                 let mut new_entity = Entity::new(item_copy);
                                 new_entity.add_rule(rule);
                                 self.entities.push(new_entity);
@@ -214,9 +246,10 @@ impl <T> Coordinator<T> where T: PartialEq + Clone {
                 }
             }
         }
-        
+
         Ok(&self.entities)
     }
+
 
     fn existing_entity(&mut self, item: &Vec<T>) -> Option<&mut Entity<Vec<T>>> {
         self.entities.iter_mut().find(|ent| ent.item == *item)
