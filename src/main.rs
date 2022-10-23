@@ -22,7 +22,7 @@ fn main() {
         chars_dimensional[row as usize].push(c);
     }
 
-    let mut coord = Coordinator::new();
+    let mut coord = Coordinator::default();
     coord
         .create_rules(chars_dimensional, 2)
         .expect("Creating the rules for the sample failed.");

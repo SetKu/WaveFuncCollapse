@@ -146,23 +146,31 @@ where
 {
     superpositions: Vec<Superposition<T>>,
     entities: Vec<Entity<Vec<T>>>,
-    pub use_diagonals: bool,
     pub use_weights: bool,
     pub use_transforms: bool,
 }
 
 impl<T> Coordinator<T>
 where
-    T: PartialEq + Clone + std::fmt::Debug,
+    T: PartialEq + Clone,
 {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Coordinator {
             superpositions: vec![],
             entities: Vec::new(),
-            use_diagonals: true,
             use_weights: true,
             use_transforms: true,
         }
+    }
+
+    pub fn default() -> Self {
+        Self::new()
+    }
+
+    pub fn collapse_all(&mut self) -> Result<Vec<Entity<T>>, WaveError> {
+        while !self.superpositions.iter().all(|i| i.is_collapsed()) {}
+
+        Ok(vec![])
     }
 
     pub fn collapse(&mut self) -> Result<(), WaveError> {
@@ -173,7 +181,7 @@ where
                 continue;
             }
 
-            if lowest_entropies.len() == 0 {
+            if lowest_entropies.is_empty() {
                 lowest_entropies.push(superposition);
                 continue;
             }
@@ -190,119 +198,65 @@ where
             }
         }
 
-        if lowest_entropies.len() == 0 {
+        if lowest_entropies.is_empty() {
             return Err(WaveError::Contradiction);
         }
 
         let mut generator = thread_rng();
         let chosen_superposition = lowest_entropies.choose_mut(&mut generator).unwrap();
+        chosen_superposition.candidates.clear();
 
-        // CAUSE COLLAPSE
+        if self.use_weights {
+            let chosen_candidate = chosen_superposition
+                .candidates
+                .choose_weighted(&mut generator, |c| c.weight)
+                .unwrap()
+                .clone();
+            chosen_superposition.candidates.push(chosen_candidate);
+        } else {
+            let chosen_candidate = chosen_superposition
+                .candidates
+                .choose(&mut generator)
+                .unwrap()
+                .clone();
+            chosen_superposition.candidates.push(chosen_candidate);
+        }
+
+        debug_assert!(chosen_superposition.is_collapsed());
+
+        let entity = chosen_superposition.candidates.first().unwrap().clone();
+        let neighbours_locations = chosen_superposition.location.all_neighbours();
+
+        // Ripple Propogation
+        for neighbour_location in neighbours_locations {
+            let found_superposition_opt = self
+                .superpositions
+                .iter_mut()
+                .find(|s| s.location == neighbour_location.0);
+
+            if let Some(found_superposition) = found_superposition_opt {
+                let mut removed = 0;
+
+                for (i, candidate) in found_superposition.candidates.clone().iter().enumerate() {
+                    let mut is_valid = false;
+
+                    for rule in entity.rules.iter() {
+                        if rule.0 == candidate.item && rule.1 == neighbour_location.1 {
+                            is_valid = true;
+                            break;
+                        }
+                    }
+
+                    if !is_valid {
+                        found_superposition.candidates.remove(i - removed);
+                        removed += 1;
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
-
-    // pub fn collapse_once(&mut self) -> Result<(), WaveError> {
-    //     let mut lowests: Vec<&mut Superposition> = Vec::new();
-
-    //     for superpos in &mut self.superpositions {
-    //         if superpos.is_collapsed() {
-    //             continue;
-    //         }
-
-    //         // Find superpos with lowest entropy and collapse it.
-    //         // Otherwise choose among those with the same entropy using weights.
-    //         if lowests.len() == 0 {
-    //             lowests.push(superpos);
-    //             continue;
-    //         }
-
-    //         let old = lowests.first().unwrap().entropy();
-    //         let new = superpos.entropy();
-
-    //         if old > new {
-    //             lowests.clear();
-    //         }
-
-    //         if old >= new {
-    //             lowests.push(superpos);
-    //         }
-    //     }
-
-    //     if lowests.len() == 0 {
-    //         return Err(WaveError::no_uncollapsed_superpositions());
-    //     }
-
-    //     let mut rng = thread_rng();
-    //     // Choose a random superposition among those with equal low entropy.
-    //     let chosen_sp = lowests.choose_mut(&mut rng).unwrap();
-
-    //     if chosen_sp.candidates.is_empty() {
-    //         // This is a contradiction!
-    //         return Err(WaveError::contradiction());
-    //     }
-
-    //     // Choose a weighted random entity from the possible candidates for the superposition.
-    //     let entity = {
-    //         if self.use_weights {
-    //             chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone()
-    //         } else {
-    //             chosen_sp.candidates.choose(&mut rng).unwrap().clone()
-    //         }
-    //     };
-
-    //     // Clear the superposition's entities and then add the chosen entity as the only one.
-    //     chosen_sp.candidates.clear();
-    //     chosen_sp.candidates.push(entity);
-
-    //     let mut neighbours = chosen_sp.location.orthogonal_neighbours().to_vec();
-
-    //     if self.diagonals {
-    //         neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
-    //     }
-
-    //     let validations = chosen_sp.candidates.first().unwrap().validations.clone();
-
-    //     // Start propogating ripples!
-    //     for neighbour in &neighbours {
-    //         if let Some((pos, dir)) = neighbour {
-    //             if let Some(found_sp) = self.superposition_for(&pos) {
-    //                 if found_sp.is_collapsed() {
-    //                     // No need to reduce this superpositions entropy.
-    //                     continue;
-    //                 }
-
-    //                 let mut indexes_removed = 0;
-
-    //                 for i in 0..found_sp.candidates.len() {
-    //                     let mut found_valid = false;
-
-    //                     // Try to match the candidate to a valid rule.
-    //                     for validation in &validations {
-    //                         let candidate = &found_sp.candidates[i - indexes_removed];
-
-    //                         if candidate.identifier == validation.1 {
-    //                             if validation.2 == *dir {
-    //                                 // This is a valid candidate.
-    //                                 found_valid = true;
-
-    //                                 break;
-    //                             }
-    //                         }
-    //                     }
-
-    //                     if !found_valid {
-    //                         // The candidate is invalid at this point.
-    //                         found_sp.candidates.remove(i - indexes_removed);
-    //                         indexes_removed += 1;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     return Ok(());
-    // }
 
     pub fn populate_superpositions(&mut self, width: u32, height: u32) {
         self.superpositions.clear();
@@ -352,8 +306,8 @@ where
             all_items.push(new_item);
         }
 
-        for y in 0..sample.len() {
-            for x in 0..sample[y].len() {
+        for (y, row) in sample.iter().enumerate() {
+            for x in 0..row.len() {
                 let item_size_float = item_size as f32;
                 let item_y = (y as f32 / item_size_float).floor() as usize;
                 let item_x = (x as f32 / item_size_float).floor() as usize;
@@ -382,16 +336,12 @@ where
                             y_row.1.iter().enumerate().find(|&e| e.0 == neighbour_x_pos);
 
                         if let Some(neighbour_item) = neighbour_item_opt {
-                            let item_copy = item
-                                .clone()
-                                .into_iter()
-                                .map(|i| i.clone())
-                                .collect::<Vec<T>>();
+                            let item_copy = item.clone().into_iter().cloned().collect::<Vec<T>>();
                             let neighbour_item_copy = neighbour_item
                                 .1
                                 .clone()
                                 .into_iter()
-                                .map(|i| i.clone())
+                                .cloned()
                                 .collect::<Vec<T>>();
                             let rule = (neighbour_item_copy, neighbour.1);
 
