@@ -1,6 +1,6 @@
 use std::clone::Clone;
 use std::rc::Rc;
-use rand::thread_rng;
+use rand::{thread_rng, prelude::SliceRandom};
 
 mod errors;
 use errors::*;
@@ -141,6 +141,146 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
             use_transforms: true,
         }
     }
+
+    pub fn collapse(&mut self) -> Result<(), WaveError> {
+        let mut lowest_entropies: Vec<&mut Superposition<T>> = Vec::new();
+
+        for superposition in &mut self.superpositions {
+            if superposition.is_collapsed() {
+                continue;
+            }
+
+            if lowest_entropies.len() == 0 {
+                lowest_entropies.push(superposition);
+                continue;
+            }
+
+            let old = lowest_entropies.first().unwrap().entropy();
+            let new = superposition.entropy();
+
+            if old > new {
+                lowest_entropies.clear();
+            }
+
+            if old >= new {
+                lowest_entropies.push(superposition);
+            }
+        }
+
+        if lowest_entropies.len() == 0 {
+            return Err(WaveError::Contradiction);
+        }
+
+        let mut generator = thread_rng();
+        let chosen_superposition = lowest_entropies.choose_mut(&mut generator).unwrap();
+
+        // CAUSE COLLAPSE
+
+        Ok(())
+    }
+
+
+    // pub fn collapse_once(&mut self) -> Result<(), WaveError> {
+    //     let mut lowests: Vec<&mut Superposition> = Vec::new();
+
+    //     for superpos in &mut self.superpositions {
+    //         if superpos.is_collapsed() {
+    //             continue;
+    //         }
+
+    //         // Find superpos with lowest entropy and collapse it.
+    //         // Otherwise choose among those with the same entropy using weights.
+    //         if lowests.len() == 0 {
+    //             lowests.push(superpos);
+    //             continue;
+    //         }
+
+    //         let old = lowests.first().unwrap().entropy();
+    //         let new = superpos.entropy();
+
+    //         if old > new {
+    //             lowests.clear();
+    //         }
+
+    //         if old >= new {
+    //             lowests.push(superpos);
+    //         }
+    //     }
+
+    //     if lowests.len() == 0 {
+    //         return Err(WaveError::no_uncollapsed_superpositions());
+    //     }
+
+    //     let mut rng = thread_rng();
+    //     // Choose a random superposition among those with equal low entropy.
+    //     let chosen_sp = lowests.choose_mut(&mut rng).unwrap();
+
+    //     if chosen_sp.candidates.is_empty() {
+    //         // This is a contradiction!
+    //         return Err(WaveError::contradiction());
+    //     }
+
+    //     // Choose a weighted random entity from the possible candidates for the superposition.
+    //     let entity = {
+    //         if self.use_weights {
+    //             chosen_sp.candidates.choose_weighted(&mut rng, |c| c.weight).unwrap().clone()
+    //         } else {
+    //             chosen_sp.candidates.choose(&mut rng).unwrap().clone()
+    //         }
+    //     };
+
+    //     // Clear the superposition's entities and then add the chosen entity as the only one.
+    //     chosen_sp.candidates.clear();
+    //     chosen_sp.candidates.push(entity);
+
+    //     let mut neighbours = chosen_sp.location.orthogonal_neighbours().to_vec();
+        
+    //     if self.diagonals {
+    //         neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
+    //     }
+
+    //     let validations = chosen_sp.candidates.first().unwrap().validations.clone();
+
+    //     // Start propogating ripples!
+    //     for neighbour in &neighbours {
+    //         if let Some((pos, dir)) = neighbour {
+    //             if let Some(found_sp) = self.superposition_for(&pos) {
+    //                 if found_sp.is_collapsed() {
+    //                     // No need to reduce this superpositions entropy.
+    //                     continue;
+    //                 }
+                    
+    //                 let mut indexes_removed = 0;
+
+    //                 for i in 0..found_sp.candidates.len() {
+    //                     let mut found_valid = false;
+
+    //                     // Try to match the candidate to a valid rule.
+    //                     for validation in &validations {
+    //                         let candidate = &found_sp.candidates[i - indexes_removed];
+
+    //                         if candidate.identifier == validation.1 {
+    //                             if validation.2 == *dir {
+    //                                 // This is a valid candidate.
+    //                                 found_valid = true;
+                                    
+    //                                 break;
+    //                             }
+    //                         }
+    //                     }
+
+    //                     if !found_valid {
+    //                         // The candidate is invalid at this point.
+    //                         found_sp.candidates.remove(i - indexes_removed);
+    //                         indexes_removed += 1;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     return Ok(());
+    // }
 
 
     pub fn populate_superpositions(&mut self, width: u32, height: u32) {
