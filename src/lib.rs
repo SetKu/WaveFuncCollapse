@@ -1,6 +1,6 @@
+use rand::{prelude::SliceRandom, thread_rng};
 use std::clone::Clone;
 use std::rc::Rc;
-use rand::{thread_rng, prelude::SliceRandom};
 
 mod errors;
 use errors::*;
@@ -13,17 +13,23 @@ struct Location {
 
 impl Location {
     fn new_i32(x: i32, y: i32) -> Self {
-        Location { x: x, y: y }
+        Location { x, y }
     }
 
     fn new_u32(x: u32, y: u32) -> Self {
-        Location { x: x as i32, y: y as i32 }
+        Location {
+            x: x as i32,
+            y: y as i32,
+        }
     }
 
     fn new_usize(x: usize, y: usize) -> Self {
-        Location { x: x as i32, y: y as i32 }
+        Location {
+            x: x as i32,
+            y: y as i32,
+        }
     }
-    
+
     // Returns the top, right, down, left neighbours to a specified location.
     fn orthogonal_neighbours(&self) -> [(Location, Direction); 4] {
         use Direction::*;
@@ -34,7 +40,7 @@ impl Location {
             (Self::new_i32(self.x - 1, self.y), Left),
         ]
     }
-    
+
     fn diagonal_neighbours(&self) -> [(Location, Direction); 4] {
         use Direction::*;
         [
@@ -59,7 +65,6 @@ impl std::fmt::Display for Location {
     }
 }
 
-
 #[derive(Debug, std::clone::Clone, PartialEq)]
 enum Direction {
     UpLeft = 0,
@@ -72,58 +77,73 @@ enum Direction {
     Left,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entity<T> where T: PartialEq + Clone {
+pub struct Entity<T>
+where
+    T: PartialEq + Clone,
+{
     item: T,
     rules: Vec<(T, Direction)>,
     weight: i32,
 }
 
 // Generic syntax for implementations: https://is.gd/gYBL5c
-impl <T> Entity<T> where T: PartialEq + Clone {
+impl<T> Entity<T>
+where
+    T: PartialEq + Clone,
+{
     fn new(i: T) -> Self {
-        Entity { item: i, rules: vec![], weight: 1 }
+        Entity {
+            item: i,
+            rules: vec![],
+            weight: 1,
+        }
     }
-    
+
     // Adds a rule only if it doesn't already existing in validations.
     fn add_rule(&mut self, v: (T, Direction)) {
         let mut iter = self.rules.iter();
         let existing_val = iter.find(|&e| e.0 == v.0 && e.1 == v.1);
-        
+
         if None == existing_val {
             self.rules.push(v);
         }
     }
-    
-    fn increment_weight(&mut self, x: i32) {
-        self.weight += x;
-    }
 }
 
-
 #[derive(Debug, Clone)]
-struct Superposition<T> where T: PartialEq + Clone {
+struct Superposition<T>
+where
+    T: PartialEq + Clone,
+{
     location: Location,
     candidates: Vec<Rc<Entity<Vec<T>>>>,
 }
 
-impl <T> Superposition<T> where T: PartialEq + Clone {
+impl<T> Superposition<T>
+where
+    T: PartialEq + Clone,
+{
     fn new(l: Location) -> Self {
-        Superposition { location: l, candidates: vec![] }
+        Superposition {
+            location: l,
+            candidates: vec![],
+        }
     }
-    
+
     fn is_collapsed(&self) -> bool {
         self.candidates.len() == 1
     }
-    
+
     fn entropy(&self) -> usize {
         self.candidates.len()
     }
 }
 
-
-pub struct Coordinator<T> where T: PartialEq + Clone {
+pub struct Coordinator<T>
+where
+    T: PartialEq + Clone,
+{
     superpositions: Vec<Superposition<T>>,
     entities: Vec<Entity<Vec<T>>>,
     pub use_diagonals: bool,
@@ -131,10 +151,13 @@ pub struct Coordinator<T> where T: PartialEq + Clone {
     pub use_transforms: bool,
 }
 
-impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
+impl<T> Coordinator<T>
+where
+    T: PartialEq + Clone + std::fmt::Debug,
+{
     pub fn new() -> Self {
-        Coordinator { 
-            superpositions: vec![], 
+        Coordinator {
+            superpositions: vec![],
             entities: Vec::new(),
             use_diagonals: true,
             use_weights: true,
@@ -178,7 +201,6 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
 
         Ok(())
     }
-
 
     // pub fn collapse_once(&mut self) -> Result<(), WaveError> {
     //     let mut lowests: Vec<&mut Superposition> = Vec::new();
@@ -234,7 +256,7 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
     //     chosen_sp.candidates.push(entity);
 
     //     let mut neighbours = chosen_sp.location.orthogonal_neighbours().to_vec();
-        
+
     //     if self.diagonals {
     //         neighbours.append(&mut chosen_sp.location.diagonal_neighbours().to_vec());
     //     }
@@ -249,7 +271,7 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
     //                     // No need to reduce this superpositions entropy.
     //                     continue;
     //                 }
-                    
+
     //                 let mut indexes_removed = 0;
 
     //                 for i in 0..found_sp.candidates.len() {
@@ -263,7 +285,7 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
     //                             if validation.2 == *dir {
     //                                 // This is a valid candidate.
     //                                 found_valid = true;
-                                    
+
     //                                 break;
     //                             }
     //                         }
@@ -282,14 +304,11 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
     //     return Ok(());
     // }
 
-
     pub fn populate_superpositions(&mut self, width: u32, height: u32) {
         self.superpositions.clear();
 
-        let entities_lock: Vec<Rc<Entity<Vec<T>>>> = self.entities
-            .iter()
-            .map(|e| Rc::new(e.clone()))
-            .collect();
+        let entities_lock: Vec<Rc<Entity<Vec<T>>>> =
+            self.entities.iter().map(|e| Rc::new(e.clone())).collect();
 
         for y in 0..height {
             for x in 0..width {
@@ -301,8 +320,11 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
         }
     }
 
-    
-    pub fn create_rules(&mut self, sample: Vec<Vec<T>>, item_size: usize) -> Result<&Vec<Entity<Vec<T>>>, WaveError> {
+    pub fn create_rules(
+        &mut self,
+        sample: Vec<Vec<T>>,
+        item_size: usize,
+    ) -> Result<&Vec<Entity<Vec<T>>>, WaveError> {
         let sample_y_len = sample.len();
 
         if sample_y_len % item_size != 0 {
@@ -353,13 +375,11 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
                         .iter()
                         .enumerate()
                         .find(|&e| e.0 == neighbour_y_pos);
-                    
+
                     if let Some(y_row) = y_row_opt {
                         let neighbour_x_pos = neighbour.0.x as usize;
-                        let neighbour_item_opt = y_row.1
-                            .iter()
-                            .enumerate()
-                            .find(|&e| e.0 == neighbour_x_pos);
+                        let neighbour_item_opt =
+                            y_row.1.iter().enumerate().find(|&e| e.0 == neighbour_x_pos);
 
                         if let Some(neighbour_item) = neighbour_item_opt {
                             let item_copy = item
@@ -367,7 +387,8 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
                                 .into_iter()
                                 .map(|i| i.clone())
                                 .collect::<Vec<T>>();
-                            let neighbour_item_copy = neighbour_item.1
+                            let neighbour_item_copy = neighbour_item
+                                .1
                                 .clone()
                                 .into_iter()
                                 .map(|i| i.clone())
@@ -389,7 +410,6 @@ impl <T> Coordinator<T> where T: PartialEq + Clone + std::fmt::Debug {
 
         Ok(&self.entities)
     }
-
 
     fn existing_entity(&mut self, item: &Vec<T>) -> Option<&mut Entity<Vec<T>>> {
         self.entities.iter_mut().find(|ent| ent.item == *item)

@@ -23,7 +23,9 @@ fn main() {
     }
 
     let mut coord = Coordinator::new();
-    coord.create_rules(chars_dimensional, 2).expect("Creating the rules for the sample failed.");
+    coord
+        .create_rules(chars_dimensional, 2)
+        .expect("Creating the rules for the sample failed.");
     coord.populate_superpositions(6, 6);
 
     // let mut w = 5_u32;
@@ -71,7 +73,7 @@ fn main() {
     // coord.process_sample(sample.clone(), t);
     // coord.set_dimensions(w, h);
     // coord.populate_superpositions();
-    
+
     // let interval = std::time::Duration::new(0, 10_u32 * 10_u32.pow(7));
     // match coord.collapse_all(true, interval) {
     //     Err(e) => println!("Found Error: {}", e),
