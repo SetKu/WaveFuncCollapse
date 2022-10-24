@@ -138,6 +138,30 @@ where
     fn entropy(&self) -> usize {
         self.candidates.len()
     }
+
+    fn unsafe_collapsed(&self) -> CollapsedSuperposition<Vec<T>> {
+        CollapsedSuperposition::new(
+            self.location.clone(),
+            self.candidates.first().unwrap().item.clone(),
+        )
+    }
+}
+
+pub struct CollapsedSuperposition<T>
+where
+    T: PartialEq + Clone,
+{
+    location: Location,
+    item: T,
+}
+
+impl<T> CollapsedSuperposition<T>
+where
+    T: PartialEq + Clone,
+{
+    fn new(location: Location, item: T) -> Self {
+        CollapsedSuperposition { location, item }
+    }
 }
 
 pub struct Coordinator<T>
@@ -145,6 +169,7 @@ where
     T: PartialEq + Clone,
 {
     superpositions: Vec<Superposition<T>>,
+    superpositions_dimensions: (u32, u32),
     entities: Vec<Entity<Vec<T>>>,
     pub use_weights: bool,
     pub use_transforms: bool,
@@ -157,6 +182,7 @@ where
     fn new() -> Self {
         Coordinator {
             superpositions: vec![],
+            superpositions_dimensions: (0, 0),
             entities: Vec::new(),
             use_weights: true,
             use_transforms: true,
@@ -167,10 +193,45 @@ where
         Self::new()
     }
 
-    pub fn collapse_all(&mut self) -> Result<Vec<Entity<T>>, WaveError> {
-        while !self.superpositions.iter().all(|i| i.is_collapsed()) {}
+    pub fn collapse_all(
+        &mut self,
+        output_width: u32,
+        output_height: u32,
+    ) -> Result<Vec<CollapsedSuperposition<Vec<T>>>, WaveError> {
+        self.superpositions_dimensions = (output_width, output_height);
+        self.populate_superpositions();
 
-        Ok(vec![])
+        let mut failures = 0;
+        let max_failures =
+            (self.superpositions_dimensions.0 * self.superpositions_dimensions.1).pow(2);
+        let mut iteration = 0;
+
+        while !self.superpositions.iter().all(|i| i.is_collapsed()) {
+            let res = self.collapse();
+
+            if let Err(err) = res {
+                if failures > max_failures - 1 {
+                    return Err(err);
+                }
+
+                // Try Again
+                failures += 1;
+                iteration = 0;
+                self.populate_superpositions();
+                continue;
+            }
+
+            iteration += 1;
+        }
+
+        let final_result: Vec<CollapsedSuperposition<Vec<T>>> = self
+            .superpositions
+            .iter()
+            .cloned()
+            .map(|s| s.unsafe_collapsed())
+            .collect();
+
+        Ok(final_result)
     }
 
     pub fn collapse(&mut self) -> Result<(), WaveError> {
@@ -258,14 +319,14 @@ where
         Ok(())
     }
 
-    pub fn populate_superpositions(&mut self, width: u32, height: u32) {
+    fn populate_superpositions(&mut self) {
         self.superpositions.clear();
 
         let entities_lock: Vec<Rc<Entity<Vec<T>>>> =
             self.entities.iter().map(|e| Rc::new(e.clone())).collect();
 
-        for y in 0..height {
-            for x in 0..width {
+        for y in 0..self.superpositions_dimensions.0 {
+            for x in 0..self.superpositions_dimensions.1 {
                 let location = Location::new_u32(x, y);
                 let mut new_superposition: Superposition<T> = Superposition::new(location);
                 new_superposition.candidates = entities_lock.clone();
