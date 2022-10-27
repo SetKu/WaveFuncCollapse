@@ -57,6 +57,19 @@ impl Location {
             .chain(self.diagonal_neighbours().into_iter())
             .collect::<Vec<(Location, Direction)>>()
     }
+
+    fn rotate_90(&mut self, point: (i32, i32)) {
+        let deg = 90_f64;
+        let c = deg.to_radians().cos();
+        let s = deg.to_radians().sin();
+        let x_rel = self.x - point.0;
+        let y_rel = self.y - point.1;
+
+        let res_x = (c * x_rel as f64) - (s * y_rel as f64) + point.0 as f64;
+        let res_y = (s * x_rel as f64) + (c * y_rel as f64) + point.1 as f64;
+        self.x = res_x.round() as i32;
+        self.y = res_y.round() as i32;
+    }
 }
 
 impl std::fmt::Display for Location {
@@ -65,7 +78,7 @@ impl std::fmt::Display for Location {
     }
 }
 
-#[derive(Debug, std::clone::Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum Direction {
     UpLeft = 0,
     Up,
@@ -75,6 +88,22 @@ enum Direction {
     Down,
     DownLeft,
     Left,
+}
+
+impl Direction {
+    fn rotate_45(&self) -> Self {
+        use Direction::*;
+        match self {
+            UpLeft => Up,
+            Up => UpRight,
+            UpRight => Right,
+            Right => DownRight,
+            DownRight => Down,
+            Down => DownLeft,
+            DownLeft => Left,
+            Left => UpLeft,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -355,10 +384,10 @@ where
         let total_vertical_items = sample_y_len / item_size;
         let total_horizontal_items = sample.first().unwrap().len() / item_size;
 
-        let mut all_items: Vec<Vec<Vec<&T>>> = vec![];
+        let mut all_items: Vec<Vec<Vec<(&T, Location)>>> = vec![];
 
         for _ in 0..total_vertical_items {
-            let mut new_item: Vec<Vec<&T>> = vec![];
+            let mut new_item: Vec<Vec<(&T, Location)>> = vec![];
 
             for _ in 0..total_horizontal_items {
                 new_item.push(vec![]);
@@ -372,7 +401,8 @@ where
                 let item_size_float = item_size as f32;
                 let item_y = (y as f32 / item_size_float).floor() as usize;
                 let item_x = (x as f32 / item_size_float).floor() as usize;
-                all_items[item_y][item_x].push(&sample[y][x]);
+                let location = Location::new_usize(x, y);
+                all_items[item_y][item_x].push((&sample[y][x], location));
             }
         }
 
@@ -397,21 +427,42 @@ where
                             y_row.1.iter().enumerate().find(|&e| e.0 == neighbour_x_pos);
 
                         if let Some(neighbour_item) = neighbour_item_opt {
-                            let item_copy = item.clone().into_iter().cloned().collect::<Vec<T>>();
+                            let item_copy = item
+                                .clone()
+                                .into_iter()
+                                .map(|s| (s.0.clone(), s.1))
+                                .collect::<Vec<(T, Location)>>();
                             let neighbour_item_copy = neighbour_item
                                 .1
                                 .clone()
                                 .into_iter()
-                                .cloned()
-                                .collect::<Vec<T>>();
-                            let rule = (neighbour_item_copy, neighbour.1);
+                                .map(|s| (s.0.clone(), s.1))
+                                .collect::<Vec<(T, Location)>>();
+                            let rules = vec![(neighbour_item_copy, neighbour.1)];
+
+                            if self.use_transforms {
+                                for rotations in 0..8 {
+                                    let mut new_rule = rules.first().unwrap().clone();
+
+                                    for _ in 0..rotations {
+                                        for (i, subitem) in new_rule.0.iter_mut().enumerate() {
+                                            let mut pair = subitem.clone();
+                                            pair.1.rotate_90(());
+                                        }
+                                    }
+                                }
+                            }
 
                             if let Some(existing_entity) = self.existing_entity(&item_copy) {
-                                existing_entity.add_rule(rule);
+                                for rule in rules {
+                                    existing_entity.add_rule(rule);
+                                }
                             } else {
-                                let mut new_entity = Entity::new(item_copy);
-                                new_entity.add_rule(rule);
-                                self.entities.push(new_entity);
+                                for rule in rules {
+                                    let mut new_entity = Entity::new(item_copy);
+                                    new_entity.add_rule(rule);
+                                    self.entities.push(new_entity);
+                                }
                             }
                         }
                     }
@@ -422,7 +473,10 @@ where
         Ok(&self.entities)
     }
 
-    fn existing_entity(&mut self, item: &Vec<T>) -> Option<&mut Entity<Vec<T>>> {
-        self.entities.iter_mut().find(|ent| ent.item == *item)
+    fn existing_entity(
+        &mut self,
+        item: &Vec<(T, Location)>,
+    ) -> Option<&mut Entity<Vec<(T, Location)>>> {
+        self.entities.iter_mut().find(|e| e.item == item.0);
     }
 }
