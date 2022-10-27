@@ -1,6 +1,6 @@
 use std::clone::Clone;
 use std::error::Error;
-use std::fmt;
+use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Clone)]
 pub enum WaveError {
@@ -8,8 +8,8 @@ pub enum WaveError {
     InvalidSample,
 }
 
-impl fmt::Display for WaveError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for WaveError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         use WaveError::*;
 
         let str = match self {
