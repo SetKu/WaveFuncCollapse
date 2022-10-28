@@ -1,9 +1,10 @@
 [package]
 name = "wave_func_collapse"
-version = "0.2.0"
+version = "2.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 rand = { version = "0.8.5", features = ["alloc"] }
+bitset-core = "0.1.1"

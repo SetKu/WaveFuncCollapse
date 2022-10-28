@@ -2,15 +2,15 @@ use std::ops::{Sub, Add};
 use std::clone::Clone;
 
 #[derive(Clone)]
-struct Location {
+pub struct Location {
     x: f32,
     y: f32,
 }
 
 impl Location {
-    fn new(x: f32, y: f32) -> Self { Self { x, y } }
+    pub fn new(x: f32, y: f32) -> Self { Self { x, y } }
 
-    fn orthogonal_neighbours(&self) -> Vec<Self> {
+    pub fn orthogonal_neighbours(&self) -> Vec<Self> {
         vec![
            Self::new(self.x, self.y + 1.0),
            Self::new(self.x + 1.0, self.y),
@@ -19,7 +19,7 @@ impl Location {
         ] 
     }
 
-    fn diagonal_neighbours(&self) -> Vec<Self> {
+    pub fn diagonal_neighbours(&self) -> Vec<Self> {
         vec![
            Self::new(self.x + 1.0, self.y + 1.0),
            Self::new(self.x + 1.0, self.y - 1.0),
@@ -28,7 +28,7 @@ impl Location {
         ] 
     }
 
-    fn pos_neighbours(&self) -> Vec<Self> {
+    pub fn pos_neighbours(&self) -> Vec<Self> {
         let mut v = vec![];
         v.reserve(8);
         v.append(&mut self.orthogonal_neighbours());
@@ -36,7 +36,7 @@ impl Location {
         v.into_iter().filter(|l| l.x >= 0.0 && l.y >= 0.0).collect::<Vec<Location>>()
     }
 
-    fn rotate(&self, deg: f32, rel_point: Self) -> Self {
+    pub fn rotate(&self, deg: f32, rel_point: Self) -> Self {
         let rel_self = self.clone() - rel_point;
         let new_x = deg.to_radians().cos() * rel_self.x - deg.to_radians().sin() * rel_self.y; 
         let new_y = deg.to_radians().sin() * rel_self.x + deg.to_radians().cos() * rel_self.y; 
