@@ -1,7 +1,8 @@
 use std::ops::{Sub, Add};
 use std::clone::Clone;
+use std::fmt::Display;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Location {
     x: f32,
     y: f32,
@@ -66,3 +67,8 @@ impl Add for Location {
     }
 }
 
+impl Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(x: {}, y: {})", self.x, self.y)
+    }
+}

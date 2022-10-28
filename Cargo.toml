@@ -1,5 +1,5 @@
 [package]
-name = "wave_func_collapse"
+name = "wfc"
 version = "2.0.0"
 edition = "2021"
 
@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 rand = { version = "0.8.5", features = ["alloc"] }
-bitset-core = "0.1.1"
+# bitset-core = "0.1.1"
