@@ -2,47 +2,70 @@ mod error;
 pub mod location;
 
 use error::WaveError;
-use location::Location;
+use location::{Location, Direction};
 
 use std::collections::HashMap;
 use std::clone::Clone;
 use rand::thread_rng;
 
-pub struct Collapser {
+pub struct Collapser<S> {
     superpos_list: Vec<Superpos>,
+    sample: Option<Sample<S>>,
 }
 
-impl Collapser {
-    pub fn new(superpos_list: Vec<Superpos>) -> Self { Self { superpos_list } }
+impl<S> Collapser<S> {
+    pub fn new() -> Self {
+        Self {
+            superpos_list: vec![],
+            sample: None,
+        }
+    }
 
-    pub fn analyze<S>(sample: Sample<S>) {
+    pub fn analyze(&mut self, sample: Sample<S>) {
+        self.sample = Some(sample);
 
+        for (id, loc) in &self.sample.as_ref().unwrap().data {
+            for nb_loc in loc.positive_neighbours() {
+                if let Some(nb) = self.sample
+                    .as_ref()
+                    .unwrap()
+                    .data
+                    .iter()
+                    .find(|i| i.1 == nb_loc) {
+                     
+                }
+            } 
+        }
     }
 }
 
-#[derive(Clone)]
+pub struct Rule {
+    dir: Direction,
+    nb_id: u16,
+}
+
+#[derive(Clone, Debug)]
 pub struct Superpos {
    loc: Location,
-   candidates: Vec<u16>,
+   pot: Vec<u16>,
 }
 
 impl Superpos {
-    pub fn new(loc: Location, candidates: Vec<u16>) -> Self {
-        Self { loc, candidates }
+    pub fn new(loc: Location, pot: Vec<u16>) -> Self {
+        Self { loc, pot }
     }
 }
 
-#[derive(Debug)]
 pub struct Sample<T> {
     source_map: HashMap<u16, T>,
-    table: Vec<(u16, Location)>,
+    data: Vec<(u16, Location)>,
 }
 
 impl<T> Sample<T> {
     // Expects a sample in the following format:
-    //   SCLCS
-    //   SSCSS
-    //   CSSSC
+    //    SCLCS
+    //    SSCSS
+    //    CSSSC
     pub fn from_str(sample: String) -> Sample<char> {
         let mut map: HashMap<u16, char> = HashMap::new();
         let mut parsed: Vec<(u16, Location)> = vec![];
@@ -51,7 +74,7 @@ impl<T> Sample<T> {
         let mut next_id = 0u16;
         for (y, line) in sample.lines().enumerate() {
             for (x, ch) in line.chars().filter(|c| !c.is_whitespace()).enumerate() {
-                let loc = Location::new(x as f32, y as f32);
+                let loc = Location::new(x as f64, y as f64);
                
                 let mut cont = true;
                 for (key, val) in &map {
@@ -72,6 +95,6 @@ impl<T> Sample<T> {
             }
         }
 
-        Sample { source_map: map, table: parsed }
+        Sample { source_map: map, data: parsed }
     }
 }
