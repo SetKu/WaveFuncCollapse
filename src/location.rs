@@ -11,6 +11,8 @@ pub struct Location {
 impl Location {
     pub fn new(x: f64, y: f64) -> Self { Self { x, y } }
 
+    pub fn zero() -> Self { Self { x: 0.0, y: 0.0 } }
+
     pub fn orthogonal_neighbours(&self) -> Vec<Self> {
         vec![
            Self::new(self.x, self.y + 1.0),
@@ -53,8 +55,26 @@ impl Location {
     }
 
     pub fn relative_direction(&self, to_point: Location) -> Direction {
-        let rel_point = self.clone() - to_point;
-        return Direction::Up;
+        use Direction::*;
+        let rel_point = to_point - self.clone();
+
+        if rel_point.x < 0.0 && rel_point.y > 0.0 {
+            UpLeft
+        } else if rel_point.x == 0.0 && rel_point.y > 0.0 {
+            Up
+        } else if rel_point.x > 0.0 && rel_point.y > 0.0 {
+            UpRight
+        } else if rel_point.x > 0.0 && rel_point.y == 0.0 {
+            Right
+        } else if rel_point.x > 0.0 && rel_point.y < 0.0 {
+            DownRight
+        } else if rel_point.x == 0.0 && rel_point.y < 0.0 {
+            Down
+        } else if rel_point.x < 0.0 && rel_point.y < 0.0 {
+            DownLeft
+        } else {
+            Left
+        } 
     }
 }
 
@@ -80,18 +100,19 @@ impl Add for Location {
     }
 }
 
-impl Display for Location {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(x: {}, y: {})", self.x, self.y)
-    }
-}
-
 impl PartialEq for Location {
     fn eq(&self, other: &Self) -> bool {
         self.x == other.x && self.y == other.y
     }
 }
 
+impl Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(x: {}, y: {})", self.x, self.y)
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Direction {
     UpLeft,
     Up,
@@ -106,6 +127,7 @@ pub enum Direction {
 #[cfg(test)]
 mod tests {
     use super::Location;
+    use super::Direction;
 
     #[test]
     fn rotations() {
@@ -115,5 +137,28 @@ mod tests {
         let result2 = point.rotate(-90.0, origin, 1);
         assert_eq!(result1, Location::new(-2.0, 2.0));
         assert_eq!(result2, Location::new(2.0, -2.0));
+    }
+
+    #[test]
+    fn relative_directions() {
+        use Direction::*;
+        let origin = Location::new(0.0, 0.0);
+
+        let point1 = Location::new(-1.0, 1.0);
+        assert_eq!(origin.relative_direction(point1), UpLeft);
+        let point2 = Location::new(0.0, 1.0);
+        assert_eq!(origin.relative_direction(point2), Up);
+        let point3 = Location::new(1.0, 1.0);
+        assert_eq!(origin.relative_direction(point3), UpRight);
+        let point4 = Location::new(1.0, 0.0);
+        assert_eq!(origin.relative_direction(point4), Right);
+        let point5 = Location::new(1.0, -1.0);
+        assert_eq!(origin.relative_direction(point5), DownRight);
+        let point6 = Location::new(0.0, -1.0);
+        assert_eq!(origin.relative_direction(point6), Down);
+        let point7 = Location::new(-1.0, -1.0);
+        assert_eq!(origin.relative_direction(point7), DownLeft);
+        let point8 = Location::new(-1.0, 0.0);
+        assert_eq!(origin.relative_direction(point8), Left);
     }
 }
