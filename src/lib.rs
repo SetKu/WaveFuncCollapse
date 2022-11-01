@@ -2,16 +2,19 @@ mod error;
 pub mod location;
 
 use location::{Location, Direction};
+use error::WaveError;
 
 use std::collections::HashMap;
 use std::clone::Clone;
 use rand::thread_rng;
+use rand::prelude::*;
 
 pub struct Collapser<S> {
     superpos_list: Vec<Superpos>,
     sample: Option<Sample<S>>,
     rules: Vec<Rule>,
     pub use_transforms: bool,
+    pub use_weights: bool,
 }
 
 impl<S> Collapser<S> {
@@ -21,7 +24,120 @@ impl<S> Collapser<S> {
             sample: None,
             rules: vec![],
             use_transforms: true,
+            use_weights: true,
         }
+    }
+
+    fn collapse(&mut self) {
+        let mut target_sp: Option<&mut Superpos> = None;
+        
+        {
+            let mut target_ent = u16::MAX;
+
+            for sp in &mut self.superpos_list {
+                if sp.entropy() < target_ent {
+                    target_ent = sp.entropy();
+                    target_sp = Some(sp);
+                } 
+            }
+        }
+
+        if target_sp.is_none() {
+            return;
+        }
+
+        let chosen_val: Option<u16>;
+        let possibilities: &Vec<u16> = target_sp.as_ref().unwrap().vals.as_ref();
+
+        if self.use_weights {
+            let weights = self.sample.as_ref().unwrap().weight_map();
+            let choice = possibilities.choose_weighted(&mut thread_rng(), |v| weights.get(v).unwrap()).unwrap();
+            chosen_val = Some(*choice);
+        } else {
+            chosen_val = Some(possibilities.choose(&mut thread_rng()).unwrap().clone());
+        }
+
+        target_sp.as_mut().unwrap().vals.clear();
+        target_sp.as_mut().unwrap().vals.push(chosen_val.unwrap().clone());
+
+        let target_loc = target_sp.as_ref().unwrap().loc.clone();
+        let neighbours = target_loc.positive_neighbours();
+        let cur_rules: Vec<&Rule> = self.rules
+            .iter()
+            .filter(|r| r.root_id == chosen_val.unwrap())
+            .collect();
+
+        for nb_loc in neighbours {
+            if let Some(found_sp) = self.superpos_list
+                .iter_mut()
+                .find(|s| s.loc == nb_loc) {
+                
+                let mut vals_removed = 0;
+
+                for (i, val) in found_sp.vals.clone().into_iter().enumerate() {
+                    let mut found_rule = false;
+
+                    for rule in &cur_rules {
+                        if rule.nb_id == val && rule.dir == target_loc.relative_direction(nb_loc.clone()) {
+                            found_rule = true;
+                            break;
+                        }
+                    }
+
+                    if !found_rule {
+                        found_sp.vals.remove(i - vals_removed);
+                        vals_removed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(S, Location)>, WaveError> {
+        let mut iters = 0;
+        let mut fails = 0;
+        let max_fails = 20;
+
+        self.fill_positions(size.clone());
+        while !self.superpos_list.iter().all(|s| s.is_collapsed()) {
+            iters += 1;
+            self.collapse();
+ 
+            if let Some(_) = self.superpos_list.iter().find(|s| s.vals.is_empty()) {
+                fails += 1;
+
+                if fails > max_fails - 1 {
+                    return Err(WaveError::Contradiction);
+                }
+                
+                self.fill_positions(size);
+            }
+        }
+
+        Ok(self.mapped_sp_list())
+    }
+
+    fn mapped_sp_list(&self) -> Vec<(S, Location)> {
+        vec![]
+    }
+
+    fn fill_positions(&mut self, size: (u32, u32)) {
+        self.superpos_list.clear();
+        let vals: Vec<u16> = self.sample
+            .as_ref()
+            .unwrap()
+            .source_map
+            .keys()
+            .cloned()
+            .collect();
+
+        for y in 0..size.1 {
+            for x in 0..size.0 {
+                let loc = Location::new(x as f64, y as f64);
+                let sp = Superpos::new(loc, vals.clone());
+                self.superpos_list.push(sp);
+            }
+        } 
     }
 
     pub fn analyze(&mut self, sample: Sample<S>) {
@@ -72,15 +188,16 @@ impl Rule {
 #[derive(Clone, Debug)]
 struct Superpos {
    loc: Location,
-   pot: Vec<u16>,
+   vals: Vec<u16>,
 }
 
 impl Superpos {
-    fn new(loc: Location, pot: Vec<u16>) -> Self { Self { loc, pot } }
-
-    fn is_collapsed(&self) -> bool { self.pot.len() == 1 }    
+    fn new(loc: Location, pot: Vec<u16>) -> Self { Self { loc, vals: pot } }
+    fn is_collapsed(&self) -> bool { self.vals.len() == 1 }    
+    fn entropy(&self) -> u16 { self.vals.len() as u16 }
 }
 
+#[derive(Clone)]
 pub struct Sample<T> {
     source_map: HashMap<u16, T>,
     data: Vec<(u16, Location)>,
@@ -122,19 +239,44 @@ impl<T> Sample<T> {
 
         Sample { source_map: map, data: parsed }
     }
+    
+    fn weight_map(&self) -> HashMap<u16, u16> {
+        let mut map = HashMap::new();
+
+        for pair in &self.data {
+            if let Some(count) = map.get(&pair.0) {
+                map.insert(pair.0, count + 1);
+                continue;
+            }
+
+            map.insert(pair.0, 1);
+        }
+
+        return map;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Collapser, Sample};
+    use std::collections::HashMap;
 
     #[test]
     fn analysis() {
         let ex = "SCL".to_string();
         let sample = Sample::<char>::from_str(ex); 
         let mut collapser = Collapser::new(); 
+        collapser.analyze(sample.clone());
+        assert_eq!(collapser.rules.len(), 16);
         collapser.use_transforms = false;
         collapser.analyze(sample);
         assert_eq!(collapser.rules.len(), 4, "Analysis failed. Rules: {:#?}", collapser.rules);
+    }
+
+    #[test]
+    fn weight_map() {
+        let ex = "SSCCLL".to_string();
+        let sample = Sample::<char>::from_str(ex); 
+        assert!(sample.weight_map().iter().all(|e| *e.1 == 2));
     }
 }
