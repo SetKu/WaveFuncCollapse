@@ -29,7 +29,13 @@ fn main() {
         )
         .arg(
             arg!(
-                -p --noprint "Disables incrementally printing the function's progress."
+                -c --contradictions <number> "The maximum number of contradictions (attempts) that can be reached before the program panics."
+            )
+            .value_parser(value_parser!(u32))
+        )
+        .arg(
+            arg!(
+                -p --noprint "(Fast Mode 🚀) Disables incrementally printing the function's progress. This also removes artificially induced delays for human readability."
             )
         )
         .arg(
@@ -56,6 +62,7 @@ fn main() {
     let use_weights = !matches.get_flag("noweights");
     let use_transforms = !matches.get_flag("notransforms");
     let simple_output = matches.get_flag("quiet");
+    let max_contras = matches.get_one::<u32>("contradictions");
 
     if simple_output {
         print = false;
@@ -63,7 +70,7 @@ fn main() {
 
     let input: String = if let Some(buf) = pathbuf {
         fs::read_to_string(buf)
-        .expect("The sample provided cannot be read or is invalid.")
+        .expect("The sample provided cannot be read or is invalid")
         .replace(", ", "")
     } else {
         include_str!("sample.txt").to_string().replace(", ", "")
@@ -79,6 +86,10 @@ fn main() {
 
     collapser.use_weights = use_weights;
     collapser.use_transforms = use_transforms;
+
+    if let Some(max) = max_contras {
+        collapser.max_contradictions = *max;
+    }
     
     let interval = std::time::Duration::from_secs_f32(0.05);
     let mut output = collapse_all_str(&mut collapser, (width, height), print, interval)

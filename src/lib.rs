@@ -15,7 +15,7 @@ pub struct Collapser<S> {
     pub rules: Vec<Rule>,
     pub use_transforms: bool,
     pub use_weights: bool,
-    pub max_contradictions: u16,
+    pub max_contradictions: u32,
 }
 
 impl<S> Default for Collapser<S> {
@@ -202,7 +202,6 @@ impl<S> Collapser<S> {
 pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<String, WaveError> {
     let mut iters = 0;
     let mut fails = 0;
-    let max_fails = 20;
 
     collapser.fill_positions(size);
 
@@ -212,7 +211,7 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
         if collapser.superpos_list.iter().any(|s| s.vals.is_empty()) {
             fails += 1;
 
-            if fails > max_fails - 1 {
+            if fails > collapser.max_contradictions - 1 {
                 return Err(WaveError::Contradiction);
             }
             
@@ -246,11 +245,11 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
                 
             let rep = Parser::parse(temp);
             println!("Iteration: {}, Attempt: {}\n{}\n", iters + 1, fails + 1, rep);
+            
+            std::thread::sleep(interval);
         }
 
         iters += 1;
-
-        std::thread::sleep(interval);
     }
 
     let result = collapser.mapped_sp_list()
