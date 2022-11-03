@@ -98,7 +98,7 @@ impl<S> Collapser<S> {
         }
     }
 
-    pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(&S, Location)>, WaveError> {
+    pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<(Vec<(&S, Location)>, u32), WaveError> {
         let mut fails = 0;
 
         self.fill_positions(size);
@@ -117,7 +117,7 @@ impl<S> Collapser<S> {
             }
         }
 
-        Ok(self.mapped_sp_list())
+        Ok((self.mapped_sp_list(), fails))
     }
 
     pub fn mapped_sp_list(&self) -> Vec<(&S, Location)> {
@@ -199,8 +199,8 @@ impl<S> Collapser<S> {
     }
 }
 
-pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<String, WaveError> {
-    let mut iters = 0;
+pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<(String, u32), WaveError> {
+    let mut iters = 0_u32;
     let mut fails = 0;
 
     collapser.fill_positions(size);
@@ -257,7 +257,7 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
         .map(|i| (i.0.to_string(), i.1))
         .collect();
     let parsed = Parser::parse(result);
-    Ok(parsed)
+    Ok((parsed, fails))
 }
 
 #[derive(Debug)]

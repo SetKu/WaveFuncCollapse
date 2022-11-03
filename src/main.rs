@@ -96,9 +96,10 @@ fn main() {
         .expect("There was an error during execution");
     
     if simple_output {
-        println!("{}", output);
+        println!("{}", output.0);
     } else {
-        Parser::insert_commas(&mut output);
-        println!("Final Output:\n{}", output);
+        Parser::insert_commas(&mut output.0);
+        let rate = 1.0 / output.1 as f32 * 100.0;
+        println!("Final Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
     }
 }
