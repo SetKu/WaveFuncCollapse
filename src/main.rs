@@ -5,7 +5,7 @@ use wfc::{Collapser, Sample, collapse_all_str};
 
 fn main() {
     let input: String = include_str!("sample.txt").to_string().replace(", ", "");
-    let sample = Sample::<char>::from_str(input);
+    let sample = Sample::<char>::new_str(input);
     let mut collapser = Collapser::new();
     collapser.analyze(sample);
     let inerval = std::time::Duration::from_secs_f32(0.1);

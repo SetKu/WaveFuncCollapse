@@ -17,6 +17,12 @@ pub struct Collapser<S> {
     pub use_weights: bool,
 }
 
+impl<S> Default for Collapser<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S> Collapser<S> {
     pub fn new() -> Self {
         Self {
@@ -46,19 +52,17 @@ impl<S> Collapser<S> {
             return;
         }
 
-        let chosen_val: Option<u16>;
         let possibilities: &Vec<u16> = target_sp.as_ref().unwrap().vals.as_ref();
-
-        if self.use_weights {
+        let chosen_val: Option<u16> = if self.use_weights {
             let weights = self.sample.as_ref().unwrap().weight_map();
             let choice = possibilities.choose_weighted(&mut thread_rng(), |v| weights.get(v).unwrap()).unwrap();
-            chosen_val = Some(*choice);
+            Some(*choice)
         } else {
-            chosen_val = Some(possibilities.choose(&mut thread_rng()).unwrap().clone());
-        }
+            Some(*possibilities.choose(&mut thread_rng()).unwrap())
+        };
 
         target_sp.as_mut().unwrap().vals.clear();
-        target_sp.as_mut().unwrap().vals.push(chosen_val.unwrap().clone());
+        target_sp.as_mut().unwrap().vals.push(chosen_val.unwrap());
 
         let target_loc = target_sp.as_ref().unwrap().loc.clone();
         let neighbours = target_loc.positive_neighbours();
@@ -96,19 +100,19 @@ impl<S> Collapser<S> {
         let mut fails = 0;
         let max_fails = 20;
 
-        self.fill_positions(size.clone());
+        self.fill_positions(size);
 
         while !self.superpos_list.iter().all(|s| s.is_collapsed()) {
             self.collapse();
  
-            if let Some(_) = self.superpos_list.iter().find(|s| s.vals.is_empty()) {
+            if self.superpos_list.iter().any(|s| s.vals.is_empty()) {
                 fails += 1;
 
                 if fails > max_fails - 1 {
                     return Err(WaveError::Contradiction);
                 }
                 
-                self.fill_positions(size.clone());
+                self.fill_positions(size);
             }
         }
 
@@ -122,7 +126,7 @@ impl<S> Collapser<S> {
             .clone()
             .iter()
             .map(|s| (
-                map.get(s.vals.first().unwrap()).unwrap().clone(), 
+                map.get(s.vals.first().unwrap()).unwrap(), 
                 s.loc.clone()
             ))
             .collect()
@@ -199,19 +203,19 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
     let mut fails = 0;
     let max_fails = 20;
 
-    collapser.fill_positions(size.clone());
+    collapser.fill_positions(size);
 
     while !collapser.superpos_list.iter().all(|s| s.is_collapsed()) {
         collapser.collapse();
 
-        if let Some(_) = collapser.superpos_list.iter().find(|s| s.vals.is_empty()) {
+        if collapser.superpos_list.iter().any(|s| s.vals.is_empty()) {
             fails += 1;
 
             if fails > max_fails - 1 {
                 return Err(WaveError::Contradiction);
             }
             
-            collapser.fill_positions(size.clone());
+            collapser.fill_positions(size);
         }
 
         if print {
@@ -295,7 +299,7 @@ impl<T> Sample<T> {
     //    SCLCS
     //    SSCSS
     //    CSSSC
-    pub fn from_str(sample: String) -> Sample<char> {
+    pub fn new_str(sample: String) -> Sample<char> {
         let mut map: HashMap<u16, char> = HashMap::new();
         let mut parsed: Vec<(u16, Location)> = vec![];
         parsed.reserve(sample.len());
@@ -339,7 +343,7 @@ impl<T> Sample<T> {
             map.insert(pair.0, 1);
         }
 
-        return map;
+        map
     }
 
     pub fn unique_sources(&self) -> usize {
@@ -351,7 +355,7 @@ pub struct Parser { }
 
 impl Parser {
     pub fn parse(result: Vec<(String, Location)>) -> String {
-        let mut organized = result.clone();
+        let mut organized = result;
         organized.sort_by_key(|i| i.1.clone());
         
         let mut output = String::new();
@@ -385,7 +389,7 @@ mod tests {
     #[test]
     fn analysis() {
         let ex = "SCL".to_string();
-        let sample = Sample::<char>::from_str(ex); 
+        let sample = Sample::<char>::new_str(ex); 
         let mut collapser = Collapser::new(); 
         collapser.analyze(sample.clone());
         assert_eq!(collapser.rules.len(), 16);
@@ -397,7 +401,7 @@ mod tests {
     #[test]
     pub fn weight_map() {
         let ex = "SSCCLL".to_string();
-        let sample = Sample::<char>::from_str(ex); 
+        let sample = Sample::<char>::new_str(ex); 
         assert!(sample.weight_map().iter().all(|e| *e.1 == 2));
     }
 }
