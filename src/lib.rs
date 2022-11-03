@@ -10,9 +10,9 @@ use rand::thread_rng;
 use rand::prelude::*;
 
 pub struct Collapser<S> {
-    superpos_list: Vec<Superpos>,
-    sample: Option<Sample<S>>,
-    rules: Vec<Rule>,
+    pub superpos_list: Vec<Superpos>,
+    pub sample: Option<Sample<S>>,
+    pub rules: Vec<Rule>,
     pub use_transforms: bool,
     pub use_weights: bool,
 }
@@ -28,7 +28,7 @@ impl<S> Collapser<S> {
         }
     }
 
-    fn collapse(&mut self) {
+    pub fn collapse(&mut self) {
         let mut target_sp: Option<&mut Superpos> = None;
         
         {
@@ -93,7 +93,6 @@ impl<S> Collapser<S> {
     }
 
     pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(&S, Location)>, WaveError> {
-        let mut iters = 0;
         let mut fails = 0;
         let max_fails = 20;
 
@@ -111,14 +110,12 @@ impl<S> Collapser<S> {
                 
                 self.fill_positions(size.clone());
             }
-
-            iters += 1;
         }
 
         Ok(self.mapped_sp_list())
     }
 
-    fn mapped_sp_list(&self) -> Vec<(&S, Location)> {
+    pub fn mapped_sp_list(&self) -> Vec<(&S, Location)> {
         let map = &self.sample.as_ref().unwrap().source_map;
 
         self.superpos_list
@@ -131,7 +128,20 @@ impl<S> Collapser<S> {
             .collect()
     }
 
-    fn fill_positions(&mut self, size: (u32, u32)) {
+    pub fn mapped_multi_sp_list(&self) -> Vec<(Vec<&S>, Location)> {
+        let map = &self.sample.as_ref().unwrap().source_map;
+
+        self.superpos_list
+            .clone()
+            .iter()
+            .map(|s| (
+                s.vals.iter().map(|s| map.get(s).unwrap()).collect::<Vec<&S>>(),
+                s.loc.clone()
+            ))
+            .collect()
+    }
+
+    pub fn fill_positions(&mut self, size: (u32, u32)) {
         self.superpos_list.clear();
         let vals: Vec<u16> = self.sample
             .as_ref()
@@ -184,6 +194,69 @@ impl<S> Collapser<S> {
     }
 }
 
+pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<String, WaveError> {
+    let mut iters = 0;
+    let mut fails = 0;
+    let max_fails = 20;
+
+    collapser.fill_positions(size.clone());
+
+    while !collapser.superpos_list.iter().all(|s| s.is_collapsed()) {
+        collapser.collapse();
+
+        if let Some(_) = collapser.superpos_list.iter().find(|s| s.vals.is_empty()) {
+            fails += 1;
+
+            if fails > max_fails - 1 {
+                return Err(WaveError::Contradiction);
+            }
+            
+            collapser.fill_positions(size.clone());
+        }
+
+        if print {
+            let tot_ids = collapser.sample.as_ref().unwrap().unique_sources();
+
+            let temp = collapser.mapped_multi_sp_list()
+                .into_iter()
+                .map(|i| {
+                    let mut compact = i.0
+                        .into_iter()
+                        .map(|c| c.to_string())
+                        .reduce(|acc, itm| acc + &itm)
+                        .unwrap();
+
+                    if compact.chars().count() < tot_ids {
+                        for _ in 0..(tot_ids - compact.chars().count()) {
+                            compact.push(' ');
+                        }
+                    }
+
+                    (
+                        format!("({})", compact),
+                        i.1
+                    )
+                })
+                .collect();
+                
+            let rep = Parser::parse(temp);
+            println!("Iteration: {}, Attempt: {}\n{}\n", iters + 1, fails + 1, rep);
+        }
+
+        iters += 1;
+
+        std::thread::sleep(interval);
+    }
+
+    let result = collapser.mapped_sp_list()
+        .into_iter()
+        .map(|i| (i.0.to_string(), i.1))
+        .collect();
+    let mut parsed = Parser::parse(result);
+    Parser::insert_commas(&mut parsed);
+    Ok(parsed)
+}
+
 #[derive(Debug)]
 pub struct Rule {
     root_id: u16,
@@ -196,16 +269,16 @@ impl Rule {
 }
 
 #[derive(Clone, Debug)]
-struct Superpos {
+pub struct Superpos {
    loc: Location,
    vals: Vec<u16>,
 }
 
 impl Superpos {
-    fn new(loc: Location, pot: Vec<u16>) -> Self { Self { loc, vals: pot } }
-    fn entropy(&self) -> u16 { self.vals.len() as u16 }
+    pub fn new(loc: Location, pot: Vec<u16>) -> Self { Self { loc, vals: pot } }
+    pub fn entropy(&self) -> u16 { self.vals.len() as u16 }
 
-    fn is_collapsed(&self) -> bool {
+    pub fn is_collapsed(&self) -> bool {
         let len = self.vals.len();
         len == 1
     }
@@ -254,7 +327,7 @@ impl<T> Sample<T> {
         Sample { source_map: map, data: parsed }
     }
     
-    fn weight_map(&self) -> HashMap<u16, u16> {
+    pub fn weight_map(&self) -> HashMap<u16, u16> {
         let mut map = HashMap::new();
 
         for pair in &self.data {
@@ -268,35 +341,46 @@ impl<T> Sample<T> {
 
         return map;
     }
+
+    pub fn unique_sources(&self) -> usize {
+        self.source_map.keys().count()
+    }
 }
 
 pub struct Parser { }
 
 impl Parser {
-    pub fn parse(result: Vec<(&char, Location)>) -> String {
+    pub fn parse(result: Vec<(String, Location)>) -> String {
         let mut organized = result.clone();
         organized.sort_by_key(|i| i.1.clone());
         
         let mut output = String::new();
         let mut line: i64 = 0;
 
-        for (ch, loc) in organized {
+        for (st, loc) in organized {
             if line < loc.y as i64 {
                 output.push('\n');
                 line = loc.y as i64;
             }
             
-            output.push(*ch);
+            output.push_str(&st);
         }
 
         output
+    }
+
+    fn insert_commas(str: &mut String) {
+        *str = str
+            .chars()
+            .map(|c| if c.is_whitespace() { c.to_string() } else { format!("{}, ", c) })
+            .reduce(|accum, item| accum + &item)
+            .unwrap();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Collapser, Sample};
-    use std::collections::HashMap;
 
     #[test]
     fn analysis() {
@@ -311,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn weight_map() {
+    pub fn weight_map() {
         let ex = "SSCCLL".to_string();
         let sample = Sample::<char>::from_str(ex); 
         assert!(sample.weight_map().iter().all(|e| *e.1 == 2));
