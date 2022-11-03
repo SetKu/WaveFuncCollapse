@@ -1,8 +1,6 @@
 # Wave Function Collapse
 
-![Swift](https://img.shields.io/badge/Rust-FA7343?style=for-the-badge&logo=rust&logoColor=white)
-
-## Demo
+![Rust](https://img.shields.io/badge/Rust-FA7343?style=for-the-badge&logo=rust&logoColor=white)
 
 <div align="center">
   <img alt="Demonstration Gif" src="https://i.postimg.cc/tJmT59Tr/Clean-Shot-2022-11-03-at-08-55-34.gif" width="50%" height="50%" style="border-radius:12px;"/>
