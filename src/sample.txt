@@ -1,6 +1,6 @@
 L, L, L, L, L, L
 C, L, L, L, C, C
-S, C, L, C, S, S
-S, S, C, S, S, S
+C, C, L, C, C, S
+S, C, C, C, S, S
 S, S, S, S, S, S
 S, S, S, S, S, S

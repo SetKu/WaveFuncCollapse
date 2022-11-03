@@ -1,6 +1,4 @@
-RRRBG
-BBBBG
-GGGGG
-BGBBB
-BBBBB
-RRRRR
+M, M, L, L, C, S
+M, L, L, C, C, S
+L, L, C, C, S, S
+C, C, C, S, S, S
