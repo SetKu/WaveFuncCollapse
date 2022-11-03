@@ -4,8 +4,8 @@ use std::fmt::Display;
 
 #[derive(Clone, Debug)]
 pub struct Location {
-    x: f64,
-    y: f64,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl Location {
@@ -106,6 +106,25 @@ impl PartialEq for Location {
     }
 }
 
+impl Eq for Location { }
+
+impl PartialOrd for Location {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.y.partial_cmp(&other.y) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+
+        self.x.partial_cmp(&other.x)
+    }
+}
+
+impl Ord for Location {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 impl Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "(x: {}, y: {})", self.x, self.y)
@@ -160,5 +179,14 @@ mod tests {
         assert_eq!(origin.relative_direction(point7), DownLeft);
         let point8 = Location::new(-1.0, 0.0);
         assert_eq!(origin.relative_direction(point8), Left);
+    }
+
+    #[test]
+    fn sorting() {
+        let i1 = Location::new(2.0, 3.0);
+        let i2 = Location::new(3.0, 3.0);
+        let mut arr = vec![i2.clone(), i1.clone()];
+        arr.sort();
+        assert_eq!(vec![i1, i2], arr);
     }
 }

@@ -35,7 +35,7 @@ impl<S> Collapser<S> {
             let mut target_ent = u16::MAX;
 
             for sp in &mut self.superpos_list {
-                if sp.entropy() < target_ent {
+                if sp.entropy() < target_ent && !sp.is_collapsed() {
                     target_ent = sp.entropy();
                     target_sp = Some(sp);
                 } 
@@ -71,7 +71,6 @@ impl<S> Collapser<S> {
             if let Some(found_sp) = self.superpos_list
                 .iter_mut()
                 .find(|s| s.loc == nb_loc) {
-                
                 let mut vals_removed = 0;
 
                 for (i, val) in found_sp.vals.clone().into_iter().enumerate() {
@@ -93,14 +92,14 @@ impl<S> Collapser<S> {
         }
     }
 
-    pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(S, Location)>, WaveError> {
+    pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(&S, Location)>, WaveError> {
         let mut iters = 0;
         let mut fails = 0;
         let max_fails = 20;
 
         self.fill_positions(size.clone());
+
         while !self.superpos_list.iter().all(|s| s.is_collapsed()) {
-            iters += 1;
             self.collapse();
  
             if let Some(_) = self.superpos_list.iter().find(|s| s.vals.is_empty()) {
@@ -110,15 +109,26 @@ impl<S> Collapser<S> {
                     return Err(WaveError::Contradiction);
                 }
                 
-                self.fill_positions(size);
+                self.fill_positions(size.clone());
             }
+
+            iters += 1;
         }
 
         Ok(self.mapped_sp_list())
     }
 
-    fn mapped_sp_list(&self) -> Vec<(S, Location)> {
-        vec![]
+    fn mapped_sp_list(&self) -> Vec<(&S, Location)> {
+        let map = &self.sample.as_ref().unwrap().source_map;
+
+        self.superpos_list
+            .clone()
+            .iter()
+            .map(|s| (
+                map.get(s.vals.first().unwrap()).unwrap().clone(), 
+                s.loc.clone()
+            ))
+            .collect()
     }
 
     fn fill_positions(&mut self, size: (u32, u32)) {
@@ -131,8 +141,8 @@ impl<S> Collapser<S> {
             .cloned()
             .collect();
 
-        for y in 0..size.1 {
-            for x in 0..size.0 {
+        for y in 0..(size.1) {
+            for x in 0..(size.0) {
                 let loc = Location::new(x as f64, y as f64);
                 let sp = Superpos::new(loc, vals.clone());
                 self.superpos_list.push(sp);
@@ -193,8 +203,12 @@ struct Superpos {
 
 impl Superpos {
     fn new(loc: Location, pot: Vec<u16>) -> Self { Self { loc, vals: pot } }
-    fn is_collapsed(&self) -> bool { self.vals.len() == 1 }    
     fn entropy(&self) -> u16 { self.vals.len() as u16 }
+
+    fn is_collapsed(&self) -> bool {
+        let len = self.vals.len();
+        len == 1
+    }
 }
 
 #[derive(Clone)]
