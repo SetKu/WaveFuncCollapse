@@ -15,6 +15,7 @@ pub struct Collapser<S> {
     pub rules: Vec<Rule>,
     pub use_transforms: bool,
     pub use_weights: bool,
+    pub max_contradictions: u16,
 }
 
 impl<S> Default for Collapser<S> {
@@ -31,6 +32,7 @@ impl<S> Collapser<S> {
             rules: vec![],
             use_transforms: true,
             use_weights: true,
+            max_contradictions: 20,
         }
     }
 
@@ -98,7 +100,6 @@ impl<S> Collapser<S> {
 
     pub fn collapse_all(&mut self, size: (u32, u32)) -> Result<Vec<(&S, Location)>, WaveError> {
         let mut fails = 0;
-        let max_fails = 20;
 
         self.fill_positions(size);
 
@@ -108,7 +109,7 @@ impl<S> Collapser<S> {
             if self.superpos_list.iter().any(|s| s.vals.is_empty()) {
                 fails += 1;
 
-                if fails > max_fails - 1 {
+                if fails > self.max_contradictions - 1 {
                     return Err(WaveError::Contradiction);
                 }
                 
@@ -256,8 +257,7 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
         .into_iter()
         .map(|i| (i.0.to_string(), i.1))
         .collect();
-    let mut parsed = Parser::parse(result);
-    Parser::insert_commas(&mut parsed);
+    let parsed = Parser::parse(result);
     Ok(parsed)
 }
 
@@ -373,7 +373,7 @@ impl Parser {
         output
     }
 
-    fn insert_commas(str: &mut String) {
+    pub fn insert_commas(str: &mut String) {
         *str = str
             .chars()
             .map(|c| if c.is_whitespace() { c.to_string() } else { format!("{}, ", c) })
