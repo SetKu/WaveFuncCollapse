@@ -270,6 +270,29 @@ impl<T> Sample<T> {
     }
 }
 
+pub struct Parser { }
+
+impl Parser {
+    pub fn parse(result: Vec<(&char, Location)>) -> String {
+        let mut organized = result.clone();
+        organized.sort_by_key(|i| i.1.clone());
+        
+        let mut output = String::new();
+        let mut line: i64 = 0;
+
+        for (ch, loc) in organized {
+            if line < loc.y as i64 {
+                output.push('\n');
+                line = loc.y as i64;
+            }
+            
+            output.push(*ch);
+        }
+
+        output
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Collapser, Sample};
