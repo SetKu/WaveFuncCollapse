@@ -37,7 +37,7 @@ impl<S> Collapser<S> {
     }
 
     pub fn collapse(&mut self) {
-        let mut target_sp: Option<&mut Superpos> = None;
+        let mut target_sps: Vec<&mut Superpos> = vec![];
         
         {
             let mut target_ent = u16::MAX;
@@ -45,16 +45,21 @@ impl<S> Collapser<S> {
             for sp in &mut self.superpos_list {
                 if sp.entropy() < target_ent && !sp.is_collapsed() {
                     target_ent = sp.entropy();
-                    target_sp = Some(sp);
+                    target_sps.clear();
+                    target_sps.push(sp);
+                } else if sp.entropy() == target_ent && !sp.is_collapsed() {
+                    target_sps.push(sp);
                 } 
             }
         }
 
-        if target_sp.is_none() {
+        if target_sps.is_empty() {
             return;
         }
 
-        let possibilities: &Vec<u16> = target_sp.as_ref().unwrap().vals.as_ref();
+        let target_sp: &mut Superpos = target_sps.into_iter().choose(&mut thread_rng()).unwrap();
+
+        let possibilities: &Vec<u16> = target_sp.vals.as_ref();
         let chosen_val: Option<u16> = if self.use_weights {
             let weights = self.sample.as_ref().unwrap().weight_map();
             let choice = possibilities.choose_weighted(&mut thread_rng(), |v| weights.get(v).unwrap()).unwrap();
@@ -63,10 +68,10 @@ impl<S> Collapser<S> {
             Some(*possibilities.choose(&mut thread_rng()).unwrap())
         };
 
-        target_sp.as_mut().unwrap().vals.clear();
-        target_sp.as_mut().unwrap().vals.push(chosen_val.unwrap());
+        target_sp.vals.clear();
+        target_sp.vals.push(chosen_val.unwrap());
 
-        let target_loc = target_sp.as_ref().unwrap().loc.clone();
+        let target_loc = target_sp.loc.clone();
         let neighbours = target_loc.positive_neighbours();
         let cur_rules: Vec<&Rule> = self.rules
             .iter()
