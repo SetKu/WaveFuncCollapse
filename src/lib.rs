@@ -77,6 +77,7 @@ impl<S> Collapser<S> {
             .iter()
             .filter(|r| r.root_id == chosen_val.unwrap())
             .collect();
+        let total_weight = cur_rules.clone().into_iter().map(|r| r.weight).reduce(|acc, itm| acc + itm).unwrap();
 
         for nb_loc in neighbours {
             if let Some(found_sp) = self.superpos_list
@@ -88,9 +89,21 @@ impl<S> Collapser<S> {
                     let mut found_rule = false;
 
                     for rule in &cur_rules {
-                        if rule.nb_id == val && rule.dir == target_loc.relative_direction(nb_loc.clone()) {
-                            found_rule = true;
-                            break;
+                        if self.use_weights {
+                            let chance = rule.weight as f32 / total_weight as f32;
+                            let rdm: f32 = thread_rng().gen();
+
+                            if rdm > chance {
+                                if rule.nb_id == val && rule.dir == target_loc.relative_direction(nb_loc.clone()) {
+                                    found_rule = true;
+                                    break;
+                                }
+                            }
+                        } else {
+                            if rule.nb_id == val && rule.dir == target_loc.relative_direction(nb_loc.clone()) {
+                                found_rule = true;
+                                break;
+                            }
                         }
                     }
 
@@ -194,9 +207,14 @@ impl<S> Collapser<S> {
                     };
 
                     for rot_loc in all {
-                       let dir = loc.relative_direction(rot_loc);
-                       let rule = Rule::new(*id, *nb_id, dir);
-                       self.rules.push(rule); 
+                        let dir = loc.relative_direction(rot_loc);
+                        let rule = Rule::new(*id, *nb_id, dir);
+
+                        if let Some(existing) = self.rules.iter_mut().find(|r| **r == rule) {
+                            existing.weight += 1;
+                        } else {
+                            self.rules.push(rule); 
+                        }
                     }
                 }
             } 
@@ -265,15 +283,16 @@ pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print
     Ok((parsed, fails))
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Rule {
     root_id: u16,
     nb_id: u16,
     dir: Direction,
+    weight: u16,
 }
 
 impl Rule {
-    pub fn new(root_id: u16, nb_id: u16, dir: Direction) -> Self { Self { root_id, nb_id, dir } }
+    pub fn new(root_id: u16, nb_id: u16, dir: Direction) -> Self { Self { root_id, nb_id, dir, weight: 1 } }
 }
 
 #[derive(Clone, Debug)]
