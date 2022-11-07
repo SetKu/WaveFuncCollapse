@@ -353,6 +353,60 @@ impl<T> Sample<T> {
 
         Sample { source_map: map, data: parsed }
     }
+
+    pub fn new_str_chunked(sample: String, chunk_size: u16) -> Sample<Vec<(char, Location)>> {
+        if chunk_size == 0 {
+            panic!("The provided chunk size cannot be 0");
+        }
+
+        let mut chunks: Vec<(Vec<(char, Location)>, Location)> = vec![];
+
+        for (y, line) in sample.lines().enumerate() {
+            for (x, ch) in line.chars().enumerate() {
+                let chunk_x = (x as f32 / chunk_size as f32).floor() as usize;
+                let chunk_y = (y as f32 / chunk_size as f32).floor() as usize;
+                let chunk_loc = Location::new(chunk_x as f64, chunk_y as f64);
+
+                let rel_x = (x as u16 % chunk_size) as usize;
+                let rel_y = (y as u16 % chunk_size) as usize;
+                let rel_loc = Location::new(rel_x as f64, rel_y as f64);
+
+                if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk_loc) {
+                    chunk.0.push((ch, rel_loc));
+                } else {
+                    let mut vec = vec![];
+                    vec.push((ch, rel_loc));
+                    chunks.push((vec, chunk_loc));
+                }
+            }
+        }
+
+        let mut id_counter = 0_u16;
+        let mut source_map: HashMap<u16, Vec<(char, Location)>> = HashMap::new();
+        let mut data: Vec<(u16, Location)> = vec![]; 
+
+        for chunk in chunks {
+            let mut cont = false;
+
+            for (key, val) in &source_map {
+                if *val == chunk.0 {
+                    data.push((*key, chunk.1.clone()));
+                    cont = true;
+                    break;
+                }
+            }
+
+            if cont {
+                continue;
+            }
+
+            source_map.insert(id_counter, chunk.0);
+            data.push((id_counter, chunk.1));
+            id_counter += 1;
+        } 
+
+        Sample { source_map, data }
+    }
     
     pub fn weight_map(&self) -> HashMap<u16, u16> {
         let mut map = HashMap::new();
