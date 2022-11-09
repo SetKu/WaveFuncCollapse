@@ -1,7 +1,7 @@
 // Modules in Rust: https://is.gd/gRhcqA
 // Modules Cheat Sheet: https://is.gd/WusVq8
 // Cross Compilation Possibility: https://kerkour.com/rust-cross-compilation
-use wfc::{Collapser, Sample, collapse_all_str, Parser};
+use wfc::{Collapser, Sample, Parser, location::Location};
 use clap::{arg, crate_version, value_parser, Command, Arg};
 use std::path::PathBuf;
 use std::fs;
@@ -83,7 +83,7 @@ fn main() {
         panic!("The input sample cannot be empty!")
     }
 
-    let sample = Sample::<char>::new_str(input);
+    let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
     let mut collapser = Collapser::new();
     collapser.analyze(sample);
 
@@ -95,7 +95,7 @@ fn main() {
     }
     
     let interval = std::time::Duration::from_secs_f32(0.05);
-    let mut output = collapse_all_str(&mut collapser, (width, height), print, interval)
+    let mut output = Collapser::chunkstr_pipeline(&mut collapser, (width, height), print, interval)
         .expect("There was an error during execution");
     
     if simple_output {

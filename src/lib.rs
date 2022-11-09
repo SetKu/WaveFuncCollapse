@@ -195,21 +195,30 @@ impl<S> Collapser<S> {
                     .data
                     .iter()
                     .find(|i| i.1 == nb_loc) { 
-                    let all = if self.use_transforms {
-                        vec![
-                            nb_loc.rotate(90.0, Location::zero(), 2),
-                            nb_loc.rotate(180.0, Location::zero(), 2),
-                            nb_loc.rotate(270.0, Location::zero(), 2),
-                            nb_loc,
-                        ]
-                    } else {
-                        vec![ nb_loc, ]
-                    };
+                    let dir = loc.relative_direction(nb_loc);
+                    let basic = Rule::new(*id, *nb_id, dir.clone());
+                    let mut rules = vec![basic];
 
-                    for rot_loc in all {
-                        let dir = loc.relative_direction(rot_loc);
-                        let rule = Rule::new(*id, *nb_id, dir);
+                    if self.use_transforms {
+                        let root_trans = self.sample.as_ref().unwrap().trans_map.get(id).unwrap();
+                        let nb_trans = self.sample.as_ref().unwrap().trans_map.get(nb_id).unwrap();
+                        
+                        if dir.clone() == Direction::Right || dir.clone() == Direction::Left {
+                            let horz_id = root_trans.horizontal_refl.clone();
+                            let horz_nb_id = nb_trans.horizontal_refl.clone(); 
+                            let horz = Rule::new(horz_id, horz_nb_id, dir.clone());
+                            rules.push(horz);
+                        } 
 
+                        if dir.clone() == Direction::Up || dir.clone() == Direction::Down {
+                            let vert_id = root_trans.vertical_refl.clone();
+                            let vert_nb_id = nb_trans.vertical_refl.clone(); 
+                            let vert = Rule::new(vert_id, vert_nb_id, dir.clone());
+                            rules.push(vert);
+                        } 
+                    }
+
+                    for rule in rules {
                         if let Some(existing) = self.rules.iter_mut().find(|r| **r == rule) {
                             existing.weight += 1;
                         } else {
@@ -220,67 +229,128 @@ impl<S> Collapser<S> {
             } 
         }
     }
-}
 
-pub fn collapse_all_str(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<(String, u32), WaveError> {
-    let mut iters = 0_u32;
-    let mut fails = 0;
+    pub fn str_pipeline(collapser: &mut Collapser<char>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<(String, u32), WaveError> {
+        let mut iters = 0_u32;
+        let mut fails = 0;
 
-    collapser.fill_positions(size);
+        collapser.fill_positions(size);
 
-    while !collapser.superpos_list.iter().all(|s| s.is_collapsed()) {
-        collapser.collapse();
+        while !collapser.superpos_list.iter().all(|s| s.is_collapsed()) {
+            collapser.collapse();
 
-        if collapser.superpos_list.iter().any(|s| s.vals.is_empty()) {
-            fails += 1;
+            if collapser.superpos_list.iter().any(|s| s.vals.is_empty()) {
+                fails += 1;
 
-            if fails > collapser.max_contradictions - 1 {
-                return Err(WaveError::Contradiction);
-            }
-            
-            collapser.fill_positions(size);
-        }
-
-        if print {
-            let tot_ids = collapser.sample.as_ref().unwrap().unique_sources();
-
-            let temp = collapser.mapped_multi_sp_list()
-                .into_iter()
-                .map(|i| {
-                    let mut compact = i.0
-                        .into_iter()
-                        .map(|c| c.to_string())
-                        .reduce(|acc, itm| acc + &itm)
-                        .unwrap();
-
-                    if compact.chars().count() < tot_ids {
-                        for _ in 0..(tot_ids - compact.chars().count()) {
-                            compact.push(' ');
-                        }
-                    }
-
-                    (
-                        format!("({})", compact),
-                        i.1
-                    )
-                })
-                .collect();
+                if fails > collapser.max_contradictions - 1 {
+                    return Err(WaveError::Contradiction);
+                }
                 
-            let rep = Parser::parse(temp);
-            println!("Iteration: {}, Attempt: {}\n{}\n", iters + 1, fails + 1, rep);
-            
-            std::thread::sleep(interval);
+                collapser.fill_positions(size);
+            }
+
+            if print {
+                let tot_ids = collapser.sample.as_ref().unwrap().unique_sources();
+
+                let temp = collapser.mapped_multi_sp_list()
+                    .into_iter()
+                    .map(|i| {
+                        let mut compact = i.0
+                            .into_iter()
+                            .map(|c| c.to_string())
+                            .reduce(|acc, itm| acc + &itm)
+                            .unwrap();
+
+                        if compact.chars().count() < tot_ids {
+                            for _ in 0..(tot_ids - compact.chars().count()) {
+                                compact.push(' ');
+                            }
+                        }
+
+                        (
+                            format!("({})", compact),
+                            i.1
+                        )
+                    })
+                    .collect();
+                    
+                let rep = Parser::parse(temp);
+                println!("Iteration: {}, Attempt: {}\n{}\n", iters + 1, fails + 1, rep);
+                
+                std::thread::sleep(interval);
+            }
+
+            iters += 1;
         }
 
-        iters += 1;
+        let result = collapser.mapped_sp_list()
+            .into_iter()
+            .map(|i| (i.0.to_string(), i.1))
+            .collect();
+        let parsed = Parser::parse(result);
+        Ok((parsed, fails))
     }
 
-    let result = collapser.mapped_sp_list()
-        .into_iter()
-        .map(|i| (i.0.to_string(), i.1))
-        .collect();
-    let parsed = Parser::parse(result);
-    Ok((parsed, fails))
+    pub fn chunkstr_pipeline(collapser: &mut Collapser<Vec<(char, Location)>>, size: (u32, u32), print: bool, interval: std::time::Duration) -> Result<(String, u32), WaveError> {
+        let mut iters = 0_u32;
+        let mut fails = 0;
+
+        collapser.fill_positions(size);
+
+        while !collapser.superpos_list.iter().all(|s| s.is_collapsed()) {
+            collapser.collapse();
+
+            if collapser.superpos_list.iter().any(|s| s.vals.is_empty()) {
+                fails += 1;
+
+                if fails > collapser.max_contradictions - 1 {
+                    return Err(WaveError::Contradiction);
+                }
+                
+                collapser.fill_positions(size);
+            }
+
+            if print {
+                let tot_ids = collapser.sample.as_ref().unwrap().unique_sources();
+
+                let temp = collapser.mapped_multi_sp_list()
+                    .into_iter()
+                    .map(|i| {
+                        let mut compact = i.0
+                            .into_iter()
+                            .map(|c| c.to_string())
+                            .reduce(|acc, itm| acc + &itm)
+                            .unwrap();
+
+                        if compact.chars().count() < tot_ids {
+                            for _ in 0..(tot_ids - compact.chars().count()) {
+                                compact.push(' ');
+                            }
+                        }
+
+                        (
+                            format!("({})", compact),
+                            i.1
+                        )
+                    })
+                    .collect();
+                    
+                let rep = Parser::parse(temp);
+                println!("Iteration: {}, Attempt: {}\n{}\n", iters + 1, fails + 1, rep);
+                
+                std::thread::sleep(interval);
+            }
+
+            iters += 1;
+        }
+
+        let result = collapser.mapped_sp_list()
+            .into_iter()
+            .map(|i| (i.0.to_string(), i.1))
+            .collect();
+        let parsed = Parser::parse(result);
+        Ok((parsed, fails))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -311,9 +381,20 @@ impl Superpos {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Transforms {
+    vertical_refl: u16,
+    horizontal_refl: u16,
+}
+
+impl Transforms {
+    pub fn new(vertical_refl: u16, horizontal_relf: u16) -> Self { Self { vertical_refl, horizontal_refl: horizontal_relf } }
+}
+
 #[derive(Clone)]
 pub struct Sample<T> {
     source_map: HashMap<u16, T>,
+    trans_map: HashMap<u16, Transforms>,
     data: Vec<(u16, Location)>,
 }
 
@@ -322,7 +403,7 @@ impl<T> Sample<T> {
     //    SCLCS
     //    SSCSS
     //    CSSSC
-    pub fn new_str(sample: String) -> Sample<char> {
+    pub fn str(sample: String) -> Sample<char> {
         let mut map: HashMap<u16, char> = HashMap::new();
         let mut parsed: Vec<(u16, Location)> = vec![];
         parsed.reserve(sample.len());
@@ -351,10 +432,17 @@ impl<T> Sample<T> {
             }
         }
 
-        Sample { source_map: map, data: parsed }
+        let mut trans_map = HashMap::new();
+
+        for (id, _) in &map {
+            let trans = Transforms::new(*id, *id);
+            trans_map.insert(*id, trans);
+        } 
+
+        Sample { source_map: map, trans_map, data: parsed }
     }
 
-    pub fn new_str_chunked(sample: String, chunk_size: u16) -> Sample<Vec<(char, Location)>> {
+    pub fn chunkstr(sample: String, chunk_size: u16) -> Sample<Vec<(char, Location)>> {
         if chunk_size == 0 {
             panic!("The provided chunk size cannot be 0");
         }
@@ -405,7 +493,46 @@ impl<T> Sample<T> {
             id_counter += 1;
         } 
 
-        Sample { source_map, data }
+        let mut trans_map = HashMap::new();
+
+        for (id, chunk) in &source_map.clone() {
+            let chunk_half = chunk_size as f64 / 2.0;
+
+            // Mirror Vertical
+
+            let mut vertical = vec![];
+            vertical.reserve(chunk.len());
+
+            for (ch, loc) in chunk {
+                let new_y = ((loc.y + 1.0 - chunk_half) * -1.0) + chunk_half;
+                let new_loc = Location::new(loc.x, new_y);
+                vertical.push((*ch, new_loc));
+            }
+
+            let vertical_id = id_counter;
+            source_map.insert(vertical_id, vertical);
+            id_counter += 1;
+
+            // Mirror Horizontal
+
+            let mut horizontal = vec![];
+            horizontal.reserve(chunk.len());
+
+            for (ch, loc) in chunk {
+                let new_x = ((loc.x + 1.0 - chunk_half) * -1.0) + chunk_half;
+                let new_loc = Location::new(new_x, loc.y);
+                horizontal.push((*ch, new_loc));
+            }
+
+            let horizontal_id = id_counter;
+            source_map.insert(horizontal_id, horizontal);
+            id_counter += 1;
+
+            let trans = Transforms::new(vertical_id, horizontal_id);
+            trans_map.insert(*id, trans);
+        }
+
+        Sample { source_map, trans_map, data }
     }
     
     pub fn weight_map(&self) -> HashMap<u16, u16> {
@@ -466,7 +593,7 @@ mod tests {
     #[test]
     fn analysis() {
         let ex = "SCL".to_string();
-        let sample = Sample::<char>::new_str(ex); 
+        let sample = Sample::<char>::str(ex); 
         let mut collapser = Collapser::new(); 
         collapser.analyze(sample.clone());
         assert_eq!(collapser.rules.len(), 16);
@@ -478,7 +605,7 @@ mod tests {
     #[test]
     pub fn weight_map() {
         let ex = "SSCCLL".to_string();
-        let sample = Sample::<char>::new_str(ex); 
+        let sample = Sample::<char>::str(ex); 
         assert!(sample.weight_map().iter().all(|e| *e.1 == 2));
     }
 }

@@ -131,7 +131,7 @@ impl Display for Location {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Direction {
     UpLeft,
     Up,
