@@ -1,7 +1,7 @@
 // Modules in Rust: https://is.gd/gRhcqA
 // Modules Cheat Sheet: https://is.gd/WusVq8
 // Cross Compilation Possibility: https://kerkour.com/rust-cross-compilation
-use wfc::{Collapser, Sample, Parser, location::Location};
+use wfc::{location::Location};
 use clap::{arg, crate_version, value_parser, Command, Arg};
 use std::path::PathBuf;
 use std::fs;
@@ -83,26 +83,26 @@ fn main() {
         panic!("The input sample cannot be empty!")
     }
 
-    let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
-    let mut collapser = Collapser::new();
-    collapser.analyze(sample);
+    // let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
+    // let mut collapser = Collapser::new();
+    // collapser.analyze(sample);
 
-    collapser.use_weights = use_weights;
-    collapser.use_transforms = use_transforms;
+    // collapser.use_weights = use_weights;
+    // collapser.use_transforms = use_transforms;
 
-    if let Some(max) = max_contras {
-        collapser.max_contradictions = *max;
-    }
+    // if let Some(max) = max_contras {
+        // collapser.max_contradictions = *max;
+    // }
     
-    let interval = std::time::Duration::from_secs_f32(0.05);
-    let mut output = Collapser::chunkstr_pipeline(&mut collapser, (width, height), print, interval)
-        .expect("There was an error during execution");
+    // let interval = std::time::Duration::from_secs_f32(0.05);
+    // let mut output = Collapser::chunkstr_pipeline(&mut collapser, (width, height), print, interval)
+        // .expect("There was an error during execution");
     
-    if simple_output {
-        println!("{}", output.0);
-    } else {
-        Parser::insert_commas(&mut output.0);
-        let rate = 1.0 / output.1 as f32 * 100.0;
-        println!("\x1b[1mFinal Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
-    }
+    // if simple_output {
+        // println!("{}", output.0);
+    // } else {
+        // Parser::insert_commas(&mut output.0);
+        // let rate = 1.0 / output.1 as f32 * 100.0;
+        // println!("\x1b[1mFinal Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
+    // }
 }
