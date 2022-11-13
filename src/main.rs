@@ -72,11 +72,8 @@ fn main() {
         fs::read_to_string(buf)
         .expect("The sample provided cannot be read or is invalid")
         .replace(", ", "")
-        .replace(",", "")
     } else {
-        include_str!("sample.txt").to_string()
-        .replace(", ", "")
-        .replace(",", "")
+        include_str!("sample.txt").to_string().replace(", ", "")
     };
 
     if input.is_empty() {
