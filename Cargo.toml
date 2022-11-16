@@ -6,9 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.19.0"
 cgmath = "0.18.0"
 rayon = { version = "1.5.3" }
 ndarray = { version = "0.15.6" }
 clap = { version = "4.0.18", features = ["cargo"] }
 rand = { version = "0.8.5", features = ["alloc"] }
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name = "roll_benchmark"
+harness = false # disable default benchmarking system (using Criterion instead)
