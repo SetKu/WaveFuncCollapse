@@ -1,6 +1,6 @@
 [package]
 name = "wfc"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,5 +16,5 @@ rand = { version = "0.8.5", features = ["alloc"] }
 criterion = "0.4.0"
 
 [[bench]]
-name = "roll_benchmark"
+name = "helpers"
 harness = false # disable default benchmarking system (using Criterion instead)

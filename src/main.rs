@@ -1,11 +1,10 @@
-
 // declare dependencies
 extern crate clap;
 extern crate wfc;
 
-use clap::{arg, crate_version, value_parser, Command, Arg};
-use std::path::PathBuf;
+use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
+use std::path::PathBuf;
 use wfc::Wave;
 
 fn main() {
@@ -47,13 +46,14 @@ fn main() {
 
     let input: String = if let Some(buf) = pathbuf {
         fs::read_to_string(buf)
-        .expect("The sample provided cannot be read or is invalid")
-        .replace(", ", "")
-        .replace(",", "")
+            .expect("The sample provided cannot be read or is invalid")
+            .replace(", ", "")
+            .replace(",", "")
     } else {
-        include_str!("sample.txt").to_string()
-        .replace(", ", "")
-        .replace(",", "")
+        include_str!("sample.txt")
+            .to_string()
+            .replace(", ", "")
+            .replace(",", "")
     };
 
     if input.is_empty() {
@@ -61,7 +61,7 @@ fn main() {
     }
 
     // convert string input into a usable bitset-based sample
-    let mut sample: Vec<Vec<u16>> = vec![]; 
+    let mut sample: Vec<Vec<u16>> = vec![];
     sample.reserve(input.lines().count());
     let mut source_map: Vec<(u16, char)> = vec![];
     let mut id_counter = 0u16;
@@ -91,7 +91,14 @@ fn main() {
     debug_assert_eq!(sample.len(), input.lines().count());
 
     let mut wave = Wave::new();
-    wave.analyze(sample.clone(), if tilesize.is_some() { *tilesize.unwrap() } else { 2 });
+    wave.analyze(
+        sample.clone(),
+        if tilesize.is_some() {
+            *tilesize.unwrap()
+        } else {
+            2
+        },
+    );
 
     // let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
     // let mut collapser = Collapser::new();
@@ -101,18 +108,18 @@ fn main() {
     // collapser.use_transforms = use_transforms;
 
     // if let Some(max) = max_contras {
-        // collapser.max_contradictions = *max;
+    // collapser.max_contradictions = *max;
     // }
-    
+
     // let interval = std::time::Duration::from_secs_f32(0.05);
     // let mut output = Collapser::chunkstr_pipeline(&mut collapser, (width, height), print, interval)
-        // .expect("There was an error during execution");
-    
+    // .expect("There was an error during execution");
+
     // if simple_output {
-        // println!("{}", output.0);
+    // println!("{}", output.0);
     // } else {
-        // Parser::insert_commas(&mut output.0);
-        // let rate = 1.0 / output.1 as f32 * 100.0;
-        // println!("\x1b[1mFinal Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
+    // Parser::insert_commas(&mut output.0);
+    // let rate = 1.0 / output.1 as f32 * 100.0;
+    // println!("\x1b[1mFinal Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
     // }
 }
