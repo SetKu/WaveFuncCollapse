@@ -90,15 +90,15 @@ fn main() {
 
     debug_assert_eq!(sample.len(), input.lines().count());
 
-    let mut wave = Wave::new();
-    wave.analyze(
-        sample.clone(),
-        if tilesize.is_some() {
-            *tilesize.unwrap()
-        } else {
-            2
-        },
-    );
+    // let mut wave = Wave::new();
+    // wave.analyze(
+    // sample.clone(),
+    // if tilesize.is_some() {
+    // *tilesize.unwrap()
+    // } else {
+    // 2
+    // },
+    // );
 
     // let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
     // let mut collapser = Collapser::new();

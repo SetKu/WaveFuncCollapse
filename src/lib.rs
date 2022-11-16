@@ -11,20 +11,9 @@ pub enum Flags {
     NoOverlap,
 }
 
-/// Various modes for analyzing tiles at the border of the `Wave` sample.
-pub enum BorderMode {
-    /// Don't include border patterns.
-    Exclude = 1,
-    /// Include border patterns and their neighbours.
-    Clamp,
-    /// Include border patterns and all their neighbours wrapping across the input.
-    Wrap,
-}
-
 /// Encapsulation for the Wave Function Collapse implementation.
 pub struct Wave {
     flags: Vec<Flags>,
-    border_mode: BorderMode,
     patterns: Vec<Pattern>,
 }
 
@@ -32,12 +21,11 @@ impl Wave {
     pub fn new() -> Self {
         Wave {
             flags: vec![],
-            border_mode: BorderMode::Clamp,
             patterns: vec![],
         }
     }
 
-    pub fn analyze(&mut self, input: Vec<Vec<u16>>, n_size: u16) {
+    pub fn analyze(&mut self, input: Vec<Vec<u16>>, n_size: u16, border_mode: BorderMode) {
 
         // let overlapped_chunks = overlapping_chunks(input, n_size);
 
@@ -130,46 +118,46 @@ where
 /// # Arguments
 ///
 /// If `allow_slims` is false, the function will panic if the input's size is not a factor of `n_size`.
-fn chunkify(input: Vec<Vec<u16>>, n_size: u16, allow_slims: bool) -> Vec<(Pattern, Vector2<u16>)> {
-    if !allow_slims {
-        assert!(input.len() >= n_size as usize);
-    }
+// fn chunkify(input: Vec<Vec<u16>>, n_size: u16, allow_slims: bool) -> Vec<(Pattern, Vector2<u16>)> {
+// if !allow_slims {
+// assert!(input.len() >= n_size as usize);
+// }
 
-    let mut chunks: Vec<(Pattern, Vector2<u16>)> = vec![];
+// let mut chunks: Vec<(Pattern, Vector2<u16>)> = vec![];
 
-    for (i_r, row) in input.iter().enumerate() {
-        for (i_c, ch) in row.iter().enumerate() {
-            let c_x = (i_r as f32 / n_size as f32).floor() as u16;
-            let c_y = (i_c as f32 / n_size as f32).floor() as u16;
-            let chunk = Vector2::new(c_x, c_y);
+// for (i_r, row) in input.iter().enumerate() {
+// for (i_c, ch) in row.iter().enumerate() {
+// let c_x = (i_r as f32 / n_size as f32).floor() as u16;
+// let c_y = (i_c as f32 / n_size as f32).floor() as u16;
+// let chunk = Vector2::new(c_x, c_y);
 
-            let r_x = i_r as u16 % n_size;
-            let r_y = i_c as u16 % n_size;
-            let rel = Vector2::new(r_x, r_y);
+// let r_x = i_r as u16 % n_size;
+// let r_y = i_c as u16 % n_size;
+// let rel = Vector2::new(r_x, r_y);
 
-            if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk) {
-                // i_c naturally increments up and thus rel.y doesn't need to be checked
-                chunk.0.contents[rel.x as usize].push(*ch);
-            } else {
-                let mut pattern = Pattern::empty(n_size);
-                pattern.contents[rel.x as usize].push(*ch);
-                let new = (pattern, chunk);
-                chunks.push(new);
-            }
-        }
-    }
+// if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk) {
+// // i_c naturally increments up and thus rel.y doesn't need to be checked
+// chunk.0.contents[rel.x as usize].push(*ch);
+// } else {
+// let mut pattern = Pattern::empty(n_size);
+// pattern.contents[rel.x as usize].push(*ch);
+// let new = (pattern, chunk);
+// chunks.push(new);
+// }
+// }
+// }
 
-    if !allow_slims && chunks.len() > 0 {
-        // check the number of chunks is equal to the input's width * height / the number
-        // of elements that should be associated with the chunk size.
-        assert_eq!(
-            chunks.len(),
-            input.len() * input[0].len() / (n_size * n_size) as usize
-        );
-    }
+// if !allow_slims && chunks.len() > 0 {
+// // check the number of chunks is equal to the input's width * height / the number
+// // of elements that should be associated with the chunk size.
+// assert_eq!(
+// chunks.len(),
+// input.len() * input[0].len() / (n_size * n_size) as usize
+// );
+// }
 
-    chunks
-}
+// chunks
+// }
 
 #[derive(Debug, Clone)]
 struct Pattern {

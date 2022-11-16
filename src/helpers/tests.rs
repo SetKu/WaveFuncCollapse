@@ -17,7 +17,7 @@ fn arrayify_works() {
         (11, Vector2::new(3, 2)),
     ];
 
-    let formatted = arrayify(input, Vector2::new(4, 3));
+    let formatted = arrayify(input, &Vector2::new(4, 3));
     assert_eq!(formatted.len(), 4);
     assert_eq!(formatted[0].len(), 3);
 
@@ -62,4 +62,9 @@ fn roll_works() {
     assert_eq!(array, expected_2);
     roll(&mut array, 1, false, true);
     assert_eq!(array, expected_3);
+}
+
+#[test]
+fn overlapping_adjacencies_works() {
+    todo!()
 }

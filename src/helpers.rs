@@ -115,6 +115,18 @@ pub fn arrayify<T>(input: Vec<(T, Vector2<usize>)>, size: &Vector2<usize>) -> Ve
     formatted
 }
 
+/// Various modes for analyzing adjacencies at the border of a 2d array.
+#[derive(PartialEq)]
+pub enum BorderMode {
+    /// Don't include border chunks.
+    Exclude,
+    /// Include border chunks and their neighbours.
+    Clamp,
+    /// Include border chunks and all their neighbours wrapping across the input.
+    Wrap,
+}
+
+/// Adjacency information and data about a given chunk.
 pub struct Adjacency<T> {
     origin: Vec<Vec<T>>,
     // array holds values for top, right, bottom, and left.
@@ -138,6 +150,7 @@ impl<T> Adjacency<T> {
 pub fn overlapping_adjacencies<T>(
     input: &Vec<Vec<T>>,
     chunk_size: Vector2<usize>,
+    border_mode: BorderMode,
 ) -> Vec<Adjacency<T>>
 where
     T: Clone,
@@ -196,25 +209,95 @@ where
                 },
             ];
 
+            let mut scrap_chunk = false;
+
             for i in 0..4 {
                 let origin = adjac_origins[i];
                 let org_edge = origin + chunk_size;
-                
-                if edge_loc.x > size_index.x || edge_loc.y > size_index.y {
-                    let mut content = vec![];
 
-                    for cx in origin.x..=org_edge.x {
-                        for cy in origin.y..=org_edge.y {
-                            content.push((input[cx][cy].to_owned(), Vector2::new(cx, cy)));
-                        }
+                // neighbour out of bounds
+                if edge_loc.x > size_index.x || edge_loc.y > size_index.y {
+                    if border_mode == BorderMode::Exclude {
+                        // don't include this chunk at all
+                        scrap_chunk = true;
+                        break;
                     }
 
-                    // check edge calc was correct and didn't pick a slim
-                    debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
+                    let just_over_edge_x = edge_loc.x + 1 == size_index.x;
+                    let just_over_edge_y = edge_loc.y + 1 == size_index.y;
+                    let just_over_edge = just_over_edge_x && just_over_edge_y;
 
-                    let formatted = arrayify(content, &chunk_size);
-                    adjacency.neighbours[i] = Some(formatted);
+                    // if wrap, wrap conservatively!
+                    //
+                    // alternative to this form of wrapping would be to wrap and include the slim
+                    // of the edge and only part of the wrapped chunk.
+                    //
+                    // this mode would be more difficult to implement and might produce less
+                    // accurate results. for now, it shall remain unimplemeneted.
+                    if border_mode == BorderMode::Wrap && just_over_edge {
+                        let wrapped_origin: Vector2<usize>;
+
+                        match i {
+                            0 => {
+                                // find bottom chunk for top
+                                wrapped_origin =
+                                    Vector2::new(origin.x, size_index.y - chunk_size.y);
+                            }
+                            1 => {
+                                // find left chunk for right
+                                wrapped_origin = Vector2::new(0, origin.y);
+                            }
+                            2 => {
+                                // find top chunk for bottom
+                                wrapped_origin = Vector2::new(origin.x, 0);
+                            }
+                            3 => {
+                                // find right chunk for left
+                                wrapped_origin =
+                                    Vector2::new(size_index.x - chunk_size.x, origin.y);
+                            }
+                            _ => {
+                                panic!("This should never happen");
+                            }
+                        }
+
+                        let wrapped_edge = wrapped_origin + chunk_size;
+
+                        let mut wrapped_chunk = vec![];
+
+                        for wx in wrapped_origin.x..=wrapped_edge.x {
+                            for wy in wrapped_origin.y..=wrapped_edge.y {
+                                wrapped_chunk
+                                    .push((input[wx][wy].to_owned(), Vector2::new(wx, wy)));
+                            }
+                        }
+
+                        let arr = arrayify(wrapped_chunk, &chunk_size);
+                        adjacency.neighbours[i] = Some(arr);
+                    }
+
+                    // nothing extra needs to happen for the clamp border mode
+
+                    continue;
                 }
+
+                let mut content = vec![];
+
+                for cx in origin.x..=org_edge.x {
+                    for cy in origin.y..=org_edge.y {
+                        content.push((input[cx][cy].to_owned(), Vector2::new(cx, cy)));
+                    }
+                }
+
+                // check edge calc was correct and didn't pick a slim
+                debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
+
+                let formatted = arrayify(content, &chunk_size);
+                adjacency.neighbours[i] = Some(formatted);
+            }
+
+            if scrap_chunk {
+                continue;
             }
 
             list.push(adjacency);
