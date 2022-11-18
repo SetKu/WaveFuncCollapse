@@ -66,5 +66,53 @@ fn roll_works() {
 
 #[test]
 fn overlapping_adjacencies_works() {
-    todo!()
+    // row (y) -> col (x)
+    let input = vec![
+        vec![0, 1, 1, 2],
+        vec![0, 0, 1, 1],
+        vec![1, 0, 0, 0],
+        vec![1, 1, 1, 1],
+    ];
+
+    // Indexes using [x][y], so expects 2d array as cols (x) -> rows (y)
+    let result = overlapping_adjacencies(swap_layers(input), Vector2::new(2, 2), BorderMode::Clamp);
+
+    assert_eq!(result.len(), 9);
+
+    assert_eq!(result[0].origin, swap_layers(vec![vec![0, 1], vec![0, 0],]));
+    assert_eq!(
+        *result[0].neighbours[2].as_ref().unwrap(),
+        swap_layers(vec![vec![1, 2], vec![1, 1],])
+    );
+    assert_eq!(
+        *result[0].neighbours[1].as_ref().unwrap(),
+        vec![vec![1, 0], vec![1, 1],]
+    );
+
+    assert_eq!(
+        *result[1].neighbours[2].as_ref().unwrap(),
+        vec![vec![1, 1], vec![0, 0],]
+    );
+}
+
+#[test]
+fn swap_layers_works() {
+    // col -> row
+    let input = vec![
+        vec![0, 1, 1, 2],
+        vec![0, 0, 1, 1],
+        vec![1, 0, 0, 0],
+        vec![1, 1, 1, 1],
+    ];
+
+    // row -> col
+    let expected = vec![
+        vec![0, 0, 1, 1],
+        vec![1, 0, 0, 1],
+        vec![1, 1, 0, 1],
+        vec![2, 1, 0, 1],
+    ];
+
+    let result = swap_layers(input);
+    assert_eq!(result, expected);
 }

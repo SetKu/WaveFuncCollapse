@@ -127,6 +127,7 @@ pub enum BorderMode {
 }
 
 /// Adjacency information and data about a given chunk.
+#[derive(Debug)]
 pub struct Adjacency<T> {
     origin: Vec<Vec<T>>,
     // array holds values for top, right, bottom, and left.
@@ -148,43 +149,46 @@ impl<T> Adjacency<T> {
 ///
 /// The neighbours in the `Adjacency` data provided might be `None`, because a full-sized rectangle (chunk) doesn't exist next to it in a particular direction.
 pub fn overlapping_adjacencies<T>(
-    input: &Vec<Vec<T>>,
+    input: Vec<Vec<T>>,
     chunk_size: Vector2<usize>,
     border_mode: BorderMode,
 ) -> Vec<Adjacency<T>>
 where
     T: Clone,
 {
-    let size = dimensions_of(&input);
+    if chunk_size.x < 1 || chunk_size.y < 1 {
+        return vec![];
+    }
 
-    let mut list = vec![];
+    let size = dimensions_of(&input);
+    let size_indexed = size - Vector2::new(1, 1);
+    let size_indexed_i = size_indexed.cast::<isize>().unwrap();
+    let mut list: Vec<Adjacency<T>> = vec![];
+
+    let mut chunk_points = vec![];
+
+    for y in 0..chunk_size.y {
+        for x in 0..chunk_size.x {
+            chunk_points.push(Vector2::new(x, y));
+        }
+    }
+
+    debug_assert_eq!(chunk_points.len(), chunk_size.x * chunk_size.y);
 
     for y in 0..size.y {
         for x in 0..size.x {
             let point = Vector2::new(x, y);
-            let edge_loc = point + chunk_size;
-            let size_index = size - Vector2::new(1, 1);
+            let edge = point + chunk_size - Vector2::new(1, 1);
 
-            // check if chunk is available to select from this point
-            if edge_loc.x > size_index.x && edge_loc.y > size_index.y {
-                // out of bounds
+            // check if the chunk exists and is in bounds
+            if edge.x > size_indexed.x || edge.y > size_indexed.y {
                 continue;
             }
 
-            let mut chunk = vec![];
-
-            for cy in point.y..=edge_loc.y {
-                for cx in point.x..=edge_loc.x {
-                    chunk.push(Vector2::new(cx, cy));
-                }
-            }
-
-            // check edge calc was correct and didn't pick a slim
-            debug_assert_eq!(chunk.len(), chunk_size.x * chunk_size.y);
-
-            let content = chunk
+            let content = chunk_points
+                .to_owned()
                 .into_iter()
-                .map(|v| (input[v.x][v.y].to_owned(), v))
+                .map(|v| (input[v.x + x][v.y + y].to_owned(), v))
                 .collect();
             let arr = arrayify(content, &chunk_size);
             let mut adjacency = Adjacency::new(arr);
@@ -192,20 +196,20 @@ where
             // top, right, bottom, left
             let adjac_origins = [
                 Vector2 {
-                    x: point.x,
-                    y: point.y - chunk_size.y,
+                    x: point.x as isize,
+                    y: point.y as isize - chunk_size.y as isize,
                 },
                 Vector2 {
-                    x: point.x + chunk_size.x,
-                    y: point.y,
+                    x: point.x as isize + chunk_size.x as isize,
+                    y: point.y as isize,
                 },
                 Vector2 {
-                    x: point.x,
-                    y: point.y - chunk_size.y,
+                    x: point.x as isize,
+                    y: point.y as isize + chunk_size.y as isize,
                 },
                 Vector2 {
-                    x: point.x - chunk_size.x,
-                    y: point.y,
+                    x: point.x as isize - chunk_size.x as isize,
+                    y: point.y as isize,
                 },
             ];
 
@@ -213,85 +217,86 @@ where
 
             for i in 0..4 {
                 let origin = adjac_origins[i];
-                let org_edge = origin + chunk_size;
+                let chunk_size_i = chunk_size.cast::<isize>().unwrap();
+                let org_edge = origin + chunk_size_i - Vector2::new(1, 1);
 
-                // neighbour out of bounds
-                if edge_loc.x > size_index.x || edge_loc.y > size_index.y {
+                // corner infringements
+                let top_left_e = org_edge.x < chunk_size_i.x || org_edge.y < chunk_size_i.y;
+                let bottom_right_o = origin.x > size_indexed_i.x - chunk_size_i.x
+                    || origin.y > size_indexed_i.y - chunk_size_i.y;
+
+                if top_left_e || bottom_right_o {
                     if border_mode == BorderMode::Exclude {
                         // don't include this chunk at all
                         scrap_chunk = true;
                         break;
                     }
 
-                    let just_over_edge_x = edge_loc.x + 1 == size_index.x;
-                    let just_over_edge_y = edge_loc.y + 1 == size_index.y;
-                    let just_over_edge = just_over_edge_x && just_over_edge_y;
+                    if border_mode == BorderMode::Wrap {
+                        let mut content: Vec<(T, Vector2<usize>)> = vec![];
 
-                    // if wrap, wrap conservatively!
-                    //
-                    // alternative to this form of wrapping would be to wrap and include the slim
-                    // of the edge and only part of the wrapped chunk.
-                    //
-                    // this mode would be more difficult to implement and might produce less
-                    // accurate results. for now, it shall remain unimplemeneted.
-                    if border_mode == BorderMode::Wrap && just_over_edge {
-                        let wrapped_origin: Vector2<usize>;
+                        for iy in 0..chunk_size.y {
+                            for ix in 0..chunk_size.x {
+                                let sum = origin + Vector2::new(ix as isize, iy as isize);
+                                let index: Vector2<usize>;
 
-                        match i {
-                            0 => {
-                                // find bottom chunk for top
-                                wrapped_origin =
-                                    Vector2::new(origin.x, size_index.y - chunk_size.y);
-                            }
-                            1 => {
-                                // find left chunk for right
-                                wrapped_origin = Vector2::new(0, origin.y);
-                            }
-                            2 => {
-                                // find top chunk for bottom
-                                wrapped_origin = Vector2::new(origin.x, 0);
-                            }
-                            3 => {
-                                // find right chunk for left
-                                wrapped_origin =
-                                    Vector2::new(size_index.x - chunk_size.x, origin.y);
-                            }
-                            _ => {
-                                panic!("This should never happen");
+                                if sum.x < 0 || sum.y < 0 {
+                                    index = Vector2::new(
+                                        size_indexed_i.x - sum.x,
+                                        size_indexed_i.y - sum.y,
+                                    )
+                                    .cast::<usize>()
+                                    .unwrap();
+                                } else if sum.x > size_indexed_i.x || sum.y > size_indexed_i.y {
+                                    index = Vector2::new(
+                                        sum.x - size_indexed_i.x,
+                                        sum.y - size_indexed_i.y,
+                                    )
+                                    .cast::<usize>()
+                                    .unwrap();
+                                } else {
+                                    index = Vector2::new(ix, iy).cast::<usize>().unwrap();
+                                }
+
+                                content.push((input[index.x][index.y].to_owned(), index));
                             }
                         }
 
-                        let wrapped_edge = wrapped_origin + chunk_size;
+                        debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
 
-                        let mut wrapped_chunk = vec![];
+                        let formatted = arrayify(content, &chunk_size);
+                        adjacency.neighbours[i] = Some(formatted);
 
-                        for wx in wrapped_origin.x..=wrapped_edge.x {
-                            for wy in wrapped_origin.y..=wrapped_edge.y {
-                                wrapped_chunk
-                                    .push((input[wx][wy].to_owned(), Vector2::new(wx, wy)));
-                            }
-                        }
-
-                        let arr = arrayify(wrapped_chunk, &chunk_size);
-                        adjacency.neighbours[i] = Some(arr);
+                        continue;
                     }
+                }
 
-                    // nothing extra needs to happen for the clamp border mode
+                let origin_invalid = origin.x < 0
+                    || origin.y < 0
+                    || origin.x > size_indexed_i.x
+                    || origin.y > size_indexed_i.y;
+                let edge_invalid = org_edge.x < 0
+                    || org_edge.y < 0
+                    || org_edge.x > size_indexed_i.x
+                    || org_edge.y > size_indexed_i.y;
 
+                if origin_invalid || edge_invalid {
                     continue;
                 }
 
-                let mut content = vec![];
+                debug_assert!(org_edge.x >= 0 && org_edge.y >= 0);
 
-                for cx in origin.x..=org_edge.x {
-                    for cy in origin.y..=org_edge.y {
-                        content.push((input[cx][cy].to_owned(), Vector2::new(cx, cy)));
-                    }
-                }
-
-                // check edge calc was correct and didn't pick a slim
-                debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
-
+                // BorderMode::Clamp
+                let content: Vec<(T, Vector2<usize>)> = chunk_points
+                    .to_owned()
+                    .into_iter()
+                    .map(|v| {
+                        (
+                            input[v.x + origin.x as usize][v.y + origin.y as usize].to_owned(),
+                            v,
+                        )
+                    })
+                    .collect();
                 let formatted = arrayify(content, &chunk_size);
                 adjacency.neighbours[i] = Some(formatted);
             }
@@ -305,4 +310,25 @@ where
     }
 
     list
+}
+
+pub fn swap_layers<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>>
+where
+    T: Clone,
+{
+    let mut new: Vec<Vec<T>> = vec![];
+
+    for ci1 in 0..input[0].len() {
+        new.push(vec![]);
+
+        for r in &input {
+            for (ci2, c) in r.iter().enumerate() {
+                if ci2 == ci1 {
+                    new[ci1].push(c.to_owned());
+                }
+            }
+        }
+    }
+
+    new
 }

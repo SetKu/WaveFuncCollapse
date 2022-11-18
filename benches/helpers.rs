@@ -20,7 +20,7 @@ fn roll_benchmark(c: &mut Criterion) {
 }
 
 fn all_possible_shifts_benchmark(c: &mut Criterion) {
-    let mut data = black_box(vec![
+    let data = black_box(vec![
         vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
         vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
         vec![1, 2, 3, 4, 5, 6, 7, 8, 9],

@@ -1,7 +1,0 @@
-P, P, P, F, P, F, 
-F, P, P, P, P, P, 
-P, P, O, P, P, P, 
-F, P, P, P, F, F, 
-P, P, P, P, P, P, 
-D, D, D, D, D, D, 
-S, S, S, S, S, S, 
