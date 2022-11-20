@@ -1,5 +1,4 @@
-#[cfg(test)]
-mod tests;
+#[cfg(test)] mod tests;
 
 extern crate cgmath;
 use cgmath::Vector2;
@@ -54,32 +53,32 @@ where
 }
 
 /// Returns all the possible shifted possibilities of the given 2D array.
-pub fn all_possible_shifts<T>(input: Vec<Vec<T>>) -> Vec<Vec<Vec<T>>>
-where
-    T: Clone,
-{
-    if input.len() == 0 || input[0].len() == 0 {
-        return vec![];
-    }
+// pub fn all_possible_shifts<T>(input: Vec<Vec<T>>) -> Vec<Vec<Vec<T>>>
+// where
+    // T: Clone,
+// {
+    // if input.len() == 0 || input[0].len() == 0 {
+        // return vec![];
+    // }
 
-    let mut sets: Vec<Vec<Vec<T>>> = vec![];
-    let input_size = dimensions_of(&input);
-    let shifts = std::cmp::max(input_size.x, input_size.y);
+    // let mut sets: Vec<Vec<Vec<T>>> = vec![];
+    // let input_size = dimensions_of(&input);
+    // let shifts = std::cmp::max(input_size.x, input_size.y);
 
-    for (x_axis, y_axis) in [(true, false), (false, true), (true, true)] {
-        for shift_count in 0..shifts {
-            let mut new_set = input.to_owned();
+    // for (x_axis, y_axis) in [(true, false), (false, true), (true, true)] {
+        // for shift_count in 0..shifts {
+            // let mut new_set = input.to_owned();
 
-            for _ in 0..(shift_count + 1) {
-                roll(&mut new_set, shifts.into(), x_axis, y_axis);
-            }
+            // for _ in 0..(shift_count + 1) {
+                // roll(&mut new_set, shifts.into(), x_axis, y_axis);
+            // }
 
-            sets.push(new_set);
-        }
-    }
+            // sets.push(new_set);
+        // }
+    // }
 
-    sets
-}
+    // sets
+// }
 
 /// Converts the given flat vector of `T` and `Vector2` pairs into a 2-dimensional vector of just `T`.
 ///
@@ -122,8 +121,8 @@ pub enum BorderMode {
     Exclude,
     /// Include border chunks and their neighbours.
     Clamp,
-    /// Include border chunks and all their neighbours wrapping across the input.
-    Wrap,
+    // /// Include border chunks and all their neighbours wrapping across the input.
+    // Wrap,
 }
 
 /// Adjacency information and data about a given chunk.
@@ -175,8 +174,8 @@ where
 
     debug_assert_eq!(chunk_points.len(), chunk_size.x * chunk_size.y);
 
-    for y in 0..size.y {
-        for x in 0..size.x {
+    for x in 0..size.x {
+        for y in 0..size.y {
             let point = Vector2::new(x, y);
             let edge = point + chunk_size - Vector2::new(1, 1);
 
@@ -232,43 +231,43 @@ where
                         break;
                     }
 
-                    if border_mode == BorderMode::Wrap {
-                        let mut content: Vec<(T, Vector2<usize>)> = vec![];
+                    // if border_mode == BorderMode::Wrap {
+                        // let mut content: Vec<(T, Vector2<usize>)> = vec![];
 
-                        for iy in 0..chunk_size.y {
-                            for ix in 0..chunk_size.x {
-                                let sum = origin + Vector2::new(ix as isize, iy as isize);
-                                let index: Vector2<usize>;
+                        // for iy in 0..chunk_size.y {
+                            // for ix in 0..chunk_size.x {
+                                // let sum = origin + Vector2::new(ix as isize, iy as isize);
+                                // let index: Vector2<usize>;
 
-                                if sum.x < 0 || sum.y < 0 {
-                                    index = Vector2::new(
-                                        size_indexed_i.x - sum.x,
-                                        size_indexed_i.y - sum.y,
-                                    )
-                                    .cast::<usize>()
-                                    .unwrap();
-                                } else if sum.x > size_indexed_i.x || sum.y > size_indexed_i.y {
-                                    index = Vector2::new(
-                                        sum.x - size_indexed_i.x,
-                                        sum.y - size_indexed_i.y,
-                                    )
-                                    .cast::<usize>()
-                                    .unwrap();
-                                } else {
-                                    index = Vector2::new(ix, iy).cast::<usize>().unwrap();
-                                }
+                                // if sum.x < 0 || sum.y < 0 {
+                                    // index = Vector2::new(
+                                        // size_indexed_i.x - sum.x,
+                                        // size_indexed_i.y - sum.y,
+                                    // )
+                                    // .cast::<usize>()
+                                    // .unwrap();
+                                // } else if sum.x > size_indexed_i.x || sum.y > size_indexed_i.y {
+                                    // index = Vector2::new(
+                                        // sum.x - size_indexed_i.x,
+                                        // sum.y - size_indexed_i.y,
+                                    // )
+                                    // .cast::<usize>()
+                                    // .unwrap();
+                                // } else {
+                                    // index = Vector2::new(ix, iy).cast::<usize>().unwrap();
+                                // }
 
-                                content.push((input[index.x][index.y].to_owned(), index));
-                            }
-                        }
+                                // content.push((input[index.x][index.y].to_owned(), index));
+                            // }
+                        // }
 
-                        debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
+                        // debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
 
-                        let formatted = arrayify(content, &chunk_size);
-                        adjacency.neighbours[i] = Some(formatted);
+                        // let formatted = arrayify(content, &chunk_size);
+                        // adjacency.neighbours[i] = Some(formatted);
 
-                        continue;
-                    }
+                        // continue;
+                    // }
                 }
 
                 let origin_invalid = origin.x < 0
@@ -312,23 +311,38 @@ where
     list
 }
 
-pub fn swap_layers<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>>
-where
-    T: Clone,
-{
-    let mut new: Vec<Vec<T>> = vec![];
+// pub fn rotate_ninety<T>(mut input: Vec<Vec<T>>, count: usize) -> Vec<Vec<T>>
+// where
+    // T: Clone,
+// {
+    // for _ in 0..count {
+        // for i in 0..input.len() {
+            // for j in 0..i {
+                // let tmp = input[i][j].to_owned();
+                // input[i][j] = input[j][i].to_owned();
+                // input[j][i] = tmp;
+            // }
+        // }
 
-    for ci1 in 0..input[0].len() {
-        new.push(vec![]);
+        // input.reverse();
+    // }
 
-        for r in &input {
-            for (ci2, c) in r.iter().enumerate() {
-                if ci2 == ci1 {
-                    new[ci1].push(c.to_owned());
-                }
-            }
+    // input
+// }
+
+pub fn xy_swap<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
+    let mut list = vec![];
+
+    let rlen = input.len();
+    let clen = input[0].len();
+
+    for r in 0..rlen {
+        for c in 0..clen {
+            list.push((input[r][c].to_owned(), Vector2::new(c, r)));
         }
     }
-
-    new
+    
+    std::mem::drop(input);
+    
+    arrayify(list, &Vector2::new(clen, rlen))
 }
