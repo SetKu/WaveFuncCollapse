@@ -52,7 +52,7 @@ impl Wave {
             patterns.push(pattern);
         }
 
-        patterns_reduce_dedup(&mut patterns);
+        dedup_patterns(&mut patterns);
 
         if !self.flags.contains(&Flags::NoTransforms) {
             let mut new_patterns: Vec<Pattern> = vec![];
@@ -127,11 +127,13 @@ impl Wave {
             patterns.append(&mut new_patterns);
         }
 
+        dedup_patterns(&mut patterns);
+
         self.patterns = patterns;
     }
 }
 
-fn patterns_reduce_dedup(patterns: &mut Vec<Pattern>) {
+fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     let copy = patterns.to_owned();
 
     for pattern in patterns.iter_mut() {
@@ -223,7 +225,7 @@ mod tests {
     use std::hash::Hasher;
 
     #[test]
-    fn patterns_reduce_dedup_works() {
+    fn dedup_patterns_works() {
         let mut patterns = vec![
             Pattern {
                 id: 0,
@@ -238,20 +240,22 @@ mod tests {
                 rules: vec![Rule::new(2, vec![vec![0]])],
             },
             Pattern {
-                id: 1,
+                id: 2,
                 count: 1,
                 contents: vec![vec![1]],
                 rules: vec![Rule::new(2, vec![vec![0]]), Rule::new(2, vec![vec![0]])],
             },
         ];
 
-        patterns_reduce_dedup(&mut patterns);
+        dedup_patterns(&mut patterns);
 
         assert_eq!(patterns.len(), 2);
         assert!(patterns.iter().all(|p| p.rules.len() == 1));
         assert_eq!(
             patterns.iter().map(|p| p.count).filter(|c| *c == 2).count(),
-            1
+            1,
+            "{:#?}",
+            patterns,
         );
 
         let mut hash_list: Vec<u64> = vec![];
@@ -290,6 +294,7 @@ mod tests {
         let mut wave = Wave::new();
         let input = vec![vec![0, 1, 2], vec![0, 1, 2], vec![0, 1, 2]];
 
+        wave.flags.push(Flags::NoTransforms);
         wave.analyze(input, Vector2::new(2, 2), BorderMode::Clamp);
 
         assert_eq!(wave.patterns.len(), 4);
