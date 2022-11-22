@@ -1,11 +1,13 @@
 // declare dependencies
 extern crate clap;
 extern crate wfc;
+extern crate cgmath;
 
 use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
 use std::path::PathBuf;
-use wfc::Wave;
+use wfc::{Wave, BorderMode, helpers::xy_swap};
+use cgmath::Vector2;
 
 fn main() {
     let matches = Command::new("Wave Function Collapse")
@@ -18,8 +20,12 @@ fn main() {
             .value_parser(value_parser!(u32)))
         .arg(arg!( -s --sample <file> "Use a custom sample file instead of the default sea, land, coast example." )
             .value_parser(value_parser!(PathBuf)))
-        .arg(arg!( -m --tilesize <number> "Specify the tile size used in analysis and the result. The sample provided and output size must be a factor of the tile size. The default for this value is 2." )
-            .value_parser(value_parser!(u16)))
+        .arg(arg!( -m --tilesize <number> "Specify the tile size used in the analysis and result. By default this value is 1." )
+            .value_parser(value_parser!(usize)))
+        .arg(arg!( --tilesize-w <number> "Specify the tile size width (precedent over --tilesize)." )
+            .value_parser(value_parser!(usize)))
+        .arg(arg!( --tilesize-h <number> "Specify the tile size height (precedent over --tilesize)." )
+            .value_parser(value_parser!(usize)))
         .arg(arg!( -c --contradictions <number> "The maximum number of contradictions (attempts) that can be reached before the program panics.")
             .value_parser(value_parser!(u32)))
         .arg(arg!( -p --noprint "(Fast Mode 🚀) Disables incrementally printing the function's progress. This also removes artificially induced delays for human readability."))
@@ -31,7 +37,9 @@ fn main() {
 
     let width = *matches.get_one::<u32>("width").unwrap();
     let height = *matches.get_one::<u32>("height").unwrap();
-    let tilesize = matches.get_one::<u16>("tilesize");
+    let tilesize = matches.get_one::<usize>("tilesize");
+    let tilesize_width = matches.get_one::<usize>("tilesize-w");
+    let tilesize_height = matches.get_one::<usize>("tilesize-h");
     let pathbuf = matches.get_one::<PathBuf>("sample");
     let mut print = !matches.get_flag("noprint");
     let use_weights = !matches.get_flag("noweights");
@@ -61,10 +69,10 @@ fn main() {
     }
 
     // convert string input into a usable bitset-based sample
-    let mut sample: Vec<Vec<u16>> = vec![];
+    let mut sample: Vec<Vec<usize>> = vec![];
     sample.reserve(input.lines().count());
-    let mut source_map: Vec<(u16, char)> = vec![];
-    let mut id_counter = 0u16;
+    let mut source_map: Vec<(usize, char)> = vec![];
+    let mut id_counter = 0usize;
 
     for (row, line) in input.lines().enumerate() {
         for (_, ch) in line.chars().enumerate() {
@@ -90,36 +98,23 @@ fn main() {
 
     debug_assert_eq!(sample.len(), input.lines().count());
 
-    // let mut wave = Wave::new();
-    // wave.analyze(
-    // sample.clone(),
-    // if tilesize.is_some() {
-    // *tilesize.unwrap()
-    // } else {
-    // 2
-    // },
-    // );
+    let chunk_size = if tilesize.is_some() {
+        let mut size = Vector2::new(*tilesize.unwrap(), *tilesize.unwrap());
 
-    // let sample = Sample::<Vec<(char, Location)>>::chunkstr(input, 2);
-    // let mut collapser = Collapser::new();
-    // collapser.analyze(sample);
+        if let Some(width) = tilesize_width {
+            size.x = *width;
+        }
 
-    // collapser.use_weights = use_weights;
-    // collapser.use_transforms = use_transforms;
+        if let Some(height) =  tilesize_height {
+            size.y = *height;
+        }
 
-    // if let Some(max) = max_contras {
-    // collapser.max_contradictions = *max;
-    // }
+        size
+    } else {
+        Vector2::new(1, 1)
+    };
 
-    // let interval = std::time::Duration::from_secs_f32(0.05);
-    // let mut output = Collapser::chunkstr_pipeline(&mut collapser, (width, height), print, interval)
-    // .expect("There was an error during execution");
-
-    // if simple_output {
-    // println!("{}", output.0);
-    // } else {
-    // Parser::insert_commas(&mut output.0);
-    // let rate = 1.0 / output.1 as f32 * 100.0;
-    // println!("\x1b[1mFinal Output:\n{}\n\nSuccess Rate: {:.2}%", output.0, rate);
-    // }
+    let swapped = xy_swap(sample.to_owned()); 
+    let mut wave = Wave::new();
+    wave.analyze(swapped, chunk_size, BorderMode::Clamp);
 }

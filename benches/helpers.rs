@@ -1,10 +1,10 @@
+extern crate cgmath;
 extern crate criterion;
 extern crate wfc;
-extern crate cgmath;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use wfc::helpers::{roll, overlapping_adjacencies, BorderMode};
 use cgmath::Vector2;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use wfc::helpers::{overlapping_adjacencies, roll, BorderMode};
 
 fn black_box_9x9() -> Vec<Vec<i32>> {
     black_box(vec![
@@ -37,21 +37,21 @@ fn roll_bench(c: &mut Criterion) {
 }
 
 // fn all_possible_shifts_benchmark(c: &mut Criterion) {
-    // let data = black_box(vec![
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-        // vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
-    // ]);
+// let data = black_box(vec![
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+// ]);
 
-    // c.bench_function("all possible (2d-array) shifts", |b| {
-        // b.iter(|| all_possible_shifts(data.to_owned()))
-    // });
+// c.bench_function("all possible (2d-array) shifts", |b| {
+// b.iter(|| all_possible_shifts(data.to_owned()))
+// });
 // }
 
 criterion_group!(benches, roll_bench, overlap_bench);

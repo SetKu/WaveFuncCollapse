@@ -1,14 +1,15 @@
 pub mod helpers;
-use cgmath::Vector2;
+pub use helpers::BorderMode;
 use helpers::*;
+use cgmath::Vector2;
 use std::clone::Clone;
 use std::rc::Rc;
 
 /// Flags for the `Wave`.
+#[derive(PartialEq)]
 pub enum Flags {
     NoWeights = 1,
-    NoRotations,
-    NoOverlap,
+    NoTransforms,
 }
 
 /// Encapsulation for the Wave Function Collapse implementation.
@@ -25,182 +26,272 @@ impl Wave {
         }
     }
 
-    pub fn analyze(&mut self, input: Vec<Vec<u16>>, n_size: u16, border_mode: BorderMode) {
+    pub fn analyze(
+        &mut self,
+        input: Vec<Vec<usize>>,
+        chunk_size: Vector2<usize>,
+        border_mode: BorderMode,
+    ) {
+        let adjacencies = overlapping_adjacencies(input.to_owned(), chunk_size, border_mode);
 
-        // let overlapped_chunks = overlapping_chunks(input, n_size);
+        let mut patterns = vec![];
+        patterns.reserve(adjacencies.len());
+        let mut id_counter = 0usize;
 
-        // let mut chunks = chunkify(input, n_size, false);
+        for adjacency in adjacencies {
+            let mut pattern = Pattern::new(id_counter, adjacency.origin.to_owned());
+            id_counter += 1;
 
-        // let update_metas = |chunks: &mut Vec<(Pattern, Vector2<u16>)>| {
-        // // # update pattern frequencies and entropies
-        // // copy is used to scan for the frequency of certain patterns
-        // let chunks_copy = chunks.clone();
+            for (i, neighbour) in adjacency.neighbours.into_iter().enumerate() {
+                if let Some(unwrapped) = neighbour {
+                    let rule = Rule::new(i as u8, unwrapped);
+                    pattern.rules.push(rule);
+                }
+            }
 
-        // for (pattern_1, loc_1) in chunks.iter_mut() {
-        // for (pattern_2, loc_2) in &chunks_copy {
-        // if loc_1 == loc_2 {
-        // continue;
-        // }
+            patterns.push(pattern);
+        }
 
-        // if pattern_1.contents == pattern_2.contents {
-        // pattern_1.count += 1;
-        // }
-        // }
-        // }
+        patterns_reduce_dedup(&mut patterns);
 
-        // // drop the copy early instead of waiting for scope exit
-        // std::mem::drop(chunks_copy);
+        if !self.flags.contains(&Flags::NoTransforms) {
+            let mut new_patterns: Vec<Pattern> = vec![];
 
-        // let total = chunks.len() as f32;
+            // transform time!
+            for pattern in patterns.iter() {
+                let mut mirrored_x = pattern.to_owned();
+                mirrored_x.id = id_counter;
+                id_counter += 1;
 
-        // for (pattern, _) in chunks.iter_mut() {
-        // let frequency = pattern.count as f32 / total;
-        // // the entropy of a pattern represents the "surprise" of having it occur
-        // // the higher the entropy, the greater the surprise, the more shocking the result.
-        // // equation formatted: https://is.gd/VXt4p3
-        // pattern.entropy = frequency * (1.0 / frequency).log2();
-        // }
-        // };
+                let mut mirrored_y = pattern.to_owned();
+                mirrored_y.id = id_counter;
+                id_counter += 1;
 
-        // update_metas(&mut chunks);
+                let mut combination = pattern.to_owned();
+                combination.id = id_counter;
+                id_counter += 1;
 
-        // // # find rules
-        // for (pattern, loc) in &chunks {
+                mirrored_x.contents.reverse();
 
-        // }
+                for x_val in mirrored_y.contents.iter_mut() {
+                    x_val.reverse();
+                }
+
+                combination.contents.reverse();
+                for x_val in combination.contents.iter_mut() {
+                    x_val.reverse();
+                }
+
+                let x_transf = |rule: &mut Rule| {
+                    // rule content must also be mirrored: AB CD EF -> FE DC BA
+                    rule.content.reverse();
+
+                    // only horizontal rules are reversed in place
+                    rule.direction = match rule.direction {
+                        1 => 3,
+                        3 => 1,
+                        _ => panic!(),
+                    }
+                };
+
+                let y_transf = |rule: &mut Rule| {
+                    // mirror rule content on y-axis
+                    for row in rule.content.iter_mut() {
+                        row.reverse();
+                    }
+
+                    // swap top and bottom rules
+                    rule.direction = match rule.direction {
+                        0 => 2,
+                        2 => 0,
+                        _ => panic!(),
+                    }
+                };
+
+                for rule in &mut mirrored_x.rules {
+                    x_transf(rule);
+                }
+
+                for rule in &mut mirrored_y.rules {
+                    y_transf(rule);
+                }
+
+                for rule in &mut combination.rules {
+                    x_transf(rule);
+                    y_transf(rule);
+                }
+
+                new_patterns = vec![mirrored_x, mirrored_y, combination];
+            }
+
+            patterns.append(&mut new_patterns);
+        }
+
+        self.patterns = patterns;
     }
 }
 
-fn dimensions_of<T>(input: &Vec<Vec<T>>) -> (usize, usize) {
-    (
-        input.len(),
-        if input.len() > 0 { input[0].len() } else { 0 },
-    )
-}
+fn patterns_reduce_dedup(patterns: &mut Vec<Pattern>) {
+    let copy = patterns.to_owned();
 
-fn roll<T>(input: &mut Vec<Vec<T>>, shifts: usize, x_axis: bool, y_axis: bool)
-where
-    T: Clone,
-{
-    let input_size = dimensions_of(&input);
+    for pattern in patterns.iter_mut() {
+        for patcopy in &copy {
+            if pattern.contents == patcopy.contents {
+                if pattern.id != patcopy.id {
+                    pattern.count += 1;
 
-    for _ in 0..shifts {
-        let input_copy = input.to_owned();
+                    // check duplicate's rules
+                    for rule in &patcopy.rules {
+                        // push the new rule
+                        if !pattern.rules.contains(&rule) {
+                            pattern.rules.push(rule.to_owned());
+                        }
+                    }
 
-        for (i_r, row) in input.iter_mut().enumerate() {
-            for (i_c, element) in row.iter_mut().enumerate() {
-                let s_r: usize;
-                let s_c: usize;
-
-                // row
-                if y_axis {
-                    s_r = if i_r == 0 { input_size.0 - 1 } else { i_r - 1 };
-                } else {
-                    s_r = i_r;
+                    debug_assert_ne!(pattern, patcopy);
                 }
-
-                // column
-                if x_axis {
-                    s_c = if i_c == 0 { input_size.1 - 1 } else { i_c - 1 };
-                } else {
-                    s_c = i_c;
-                }
-
-                let swap_element = input_copy[s_r][s_c].clone();
-                *element = swap_element;
             }
         }
     }
+
+    std::mem::drop(copy);
+
+    for pattern in patterns.iter_mut() {
+        pattern.rules.dedup();
+    }
+
+    patterns.dedup();
 }
-
-/// Converts the 2-dimensional array into chunked, square patterns of the specified size.
-///
-/// # Arguments
-///
-/// If `allow_slims` is false, the function will panic if the input's size is not a factor of `n_size`.
-// fn chunkify(input: Vec<Vec<u16>>, n_size: u16, allow_slims: bool) -> Vec<(Pattern, Vector2<u16>)> {
-// if !allow_slims {
-// assert!(input.len() >= n_size as usize);
-// }
-
-// let mut chunks: Vec<(Pattern, Vector2<u16>)> = vec![];
-
-// for (i_r, row) in input.iter().enumerate() {
-// for (i_c, ch) in row.iter().enumerate() {
-// let c_x = (i_r as f32 / n_size as f32).floor() as u16;
-// let c_y = (i_c as f32 / n_size as f32).floor() as u16;
-// let chunk = Vector2::new(c_x, c_y);
-
-// let r_x = i_r as u16 % n_size;
-// let r_y = i_c as u16 % n_size;
-// let rel = Vector2::new(r_x, r_y);
-
-// if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk) {
-// // i_c naturally increments up and thus rel.y doesn't need to be checked
-// chunk.0.contents[rel.x as usize].push(*ch);
-// } else {
-// let mut pattern = Pattern::empty(n_size);
-// pattern.contents[rel.x as usize].push(*ch);
-// let new = (pattern, chunk);
-// chunks.push(new);
-// }
-// }
-// }
-
-// if !allow_slims && chunks.len() > 0 {
-// // check the number of chunks is equal to the input's width * height / the number
-// // of elements that should be associated with the chunk size.
-// assert_eq!(
-// chunks.len(),
-// input.len() * input[0].len() / (n_size * n_size) as usize
-// );
-// }
-
-// chunks
-// }
 
 #[derive(Debug, Clone)]
 struct Pattern {
-    count: Rc<u16>,
-    entropy: Rc<f32>,
-    contents: Rc<Vec<Vec<u16>>>,
+    id: usize,
+    count: usize,
+    contents: Vec<Vec<usize>>,
+    rules: Vec<Rule>,
+}
+
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.contents == other.contents && self.rules == other.rules && self.count == other.count
+    }
 }
 
 impl Pattern {
-    fn new(contents: Vec<Vec<u16>>) -> Self {
+    fn new(id: usize, contents: Vec<Vec<usize>>) -> Self {
         Pattern {
-            count: Rc::new(1),
-            entropy: Rc::new(0.0),
-            contents: Rc::new(contents),
+            id,
+            count: 1,
+            contents,
+            rules: vec![],
         }
     }
+}
 
-    fn empty(size: u16) -> Self {
-        let mut contents = vec![];
+#[derive(Debug, Clone, PartialEq)]
+struct Rule {
+    /// direction corresponds to the top, right, bottom, left directions
+    /// 0: up
+    /// 1: right
+    /// 2: down
+    /// 3: left
+    direction: u8,
+    content: Vec<Vec<usize>>,
+}
 
-        for _ in 0..size {
-            let mut inner = vec![];
-            inner.reserve(size.into());
-            contents.push(inner);
-        }
-
-        Self::new(contents)
-    }
-
-    fn entropy(&self, total_patterns: u16) -> f32 {
-        // shannon entropy: https://youtu.be/-Rb868HKCo8
-        let prob = *self.count as f32 / total_patterns as f32;
-        prob * (1.0 / prob).log2()
+impl Rule {
+    fn new(direction: u8, content: Vec<Vec<usize>>) -> Self {
+        Self { direction, content }
     }
 }
 
 struct Element {
-    values: Vec<Pattern>,
+    values: Vec<Rc<Pattern>>,
     position: Vector2<u16>,
 }
 
 impl Element {
     fn entropy(&self) -> f32 {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hasher;
+
+    #[test]
+    fn patterns_reduce_dedup_works() {
+        let mut patterns = vec![
+            Pattern {
+                id: 0,
+                count: 1,
+                contents: vec![vec![0]],
+                rules: vec![Rule::new(0, vec![vec![1]])],
+            },
+            Pattern {
+                id: 1,
+                count: 1,
+                contents: vec![vec![1]],
+                rules: vec![Rule::new(2, vec![vec![0]])],
+            },
+            Pattern {
+                id: 1,
+                count: 1,
+                contents: vec![vec![1]],
+                rules: vec![Rule::new(2, vec![vec![0]]), Rule::new(2, vec![vec![0]])],
+            },
+        ];
+
+        patterns_reduce_dedup(&mut patterns);
+
+        assert_eq!(patterns.len(), 2);
+        assert!(patterns.iter().all(|p| p.rules.len() == 1));
+        assert_eq!(
+            patterns.iter().map(|p| p.count).filter(|c| *c == 2).count(),
+            1
+        );
+
+        let mut hash_list: Vec<u64> = vec![];
+
+        for pattern in patterns.iter() {
+            let mut hasher = DefaultHasher::new();
+            hasher.write_usize(pattern.count);
+
+            for row in &pattern.contents {
+                for n in row {
+                    hasher.write_usize(*n);
+                }
+            }
+
+            for rule in &pattern.rules {
+                hasher.write_u8(rule.direction);
+
+                for row in &rule.content {
+                    for n in row {
+                        hasher.write_usize(*n);
+                    }
+                }
+            }
+
+            hash_list.push(hasher.finish());
+        }
+
+        let copy = hash_list.to_owned();
+        hash_list.dedup();
+
+        assert_eq!(copy, hash_list);
+    }
+
+    #[test]
+    fn wave_analyzer_works() {
+        let mut wave = Wave::new();
+        let input = vec![vec![0, 1, 2], vec![0, 1, 2], vec![0, 1, 2]];
+
+        wave.analyze(input, Vector2::new(2, 2), BorderMode::Clamp);
+
+        assert_eq!(wave.patterns.len(), 4);
     }
 }
