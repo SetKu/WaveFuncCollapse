@@ -16,6 +16,7 @@ pub enum Flags {
 pub struct Wave {
     flags: Vec<Flags>,
     patterns: Vec<Pattern>,
+    superpositions: Vec<Element>,
 }
 
 impl Wave {
@@ -23,7 +24,41 @@ impl Wave {
         Wave {
             flags: vec![],
             patterns: vec![],
+            superpositions: vec![],
         }
+    }
+
+    pub fn fill(&mut self, size: Vector2<usize>) -> Result<(), String> {
+        if let Some(first) = self.patterns.first() {
+            let chunk_size = dimensions_of(&first.contents);
+
+            if size.x % chunk_size.x != 0 {
+                return Err("The output width must be a factor of the chunk size".to_owned());
+            }
+
+            if size.y % chunk_size.y != 0 {
+                return Err("The output height must be a factor of the chunk size".to_owned());
+            }
+        }
+
+        self.superpositions.clear();
+
+        let values_preset: Vec<Rc<Pattern>> = self.patterns
+            .clone()
+            .into_iter()
+            .map(|p| Rc::new(p))
+            .collect();
+
+        for x in 0..size.x {
+            for y in 0..size.y {
+                let values = values_preset.clone();
+                let position = Vector2::new(x, y);
+                let element = Element::new(values, position);
+                self.superpositions.push(element);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn analyze(
@@ -33,6 +68,7 @@ impl Wave {
         border_mode: BorderMode,
     ) {
         let adjacencies = overlapping_adjacencies(input.to_owned(), chunk_size, border_mode);
+        let initial_count = adjacencies.len();
 
         let mut patterns = vec![];
         patterns.reserve(adjacencies.len());
@@ -60,14 +96,17 @@ impl Wave {
             // transform time!
             for pattern in patterns.iter() {
                 let mut mirrored_x = pattern.to_owned();
+                mirrored_x.is_transform = true;
                 mirrored_x.id = id_counter;
                 id_counter += 1;
 
                 let mut mirrored_y = pattern.to_owned();
+                mirrored_y.is_transform = true;
                 mirrored_y.id = id_counter;
                 id_counter += 1;
 
                 let mut combination = pattern.to_owned();
+                combination.is_transform = true;
                 combination.id = id_counter;
                 id_counter += 1;
 
@@ -129,6 +168,11 @@ impl Wave {
 
         dedup_patterns(&mut patterns);
 
+        for pattern in &mut patterns {
+            let total = Rc::new(initial_count);
+            pattern.total_count = Some(total.clone());
+        }
+
         self.patterns = patterns;
     }
 }
@@ -168,7 +212,9 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
 #[derive(Debug, Clone)]
 struct Pattern {
     id: usize,
+    is_transform: bool,
     count: usize,
+    total_count: Option<Rc<usize>>,
     contents: Vec<Vec<usize>>,
     rules: Vec<Rule>,
 }
@@ -183,7 +229,9 @@ impl Pattern {
     fn new(id: usize, contents: Vec<Vec<usize>>) -> Self {
         Pattern {
             id,
+            is_transform: false,
             count: 1,
+            total_count: None,
             contents,
             rules: vec![],
         }
@@ -209,12 +257,33 @@ impl Rule {
 
 struct Element {
     values: Vec<Rc<Pattern>>,
-    position: Vector2<u16>,
+    position: Vector2<usize>,
 }
 
 impl Element {
-    fn entropy(&self) -> f32 {
-        todo!()
+    fn new(values: Vec<Rc<Pattern>>, position: Vector2<usize>) -> Self {
+        Self {
+            values,
+            position,
+        }
+    }
+
+    fn entropy(&self) -> Option<f32> {
+        if self.values.is_empty() {
+            return None;
+        }
+
+        let mut total = 0f32;
+
+        for pattern in self.values.iter() {
+            if let Some(total_count) = pattern.total_count {
+                let prob = pattern.count as f32 / *total_count as f32;
+                let entropy = prob * (1.0 / prob).log2(); 
+                total += entropy;
+            }
+        }
+
+        Some(total)
     }
 }
 
