@@ -4,6 +4,8 @@ use helpers::*;
 use cgmath::Vector2;
 use std::clone::Clone;
 use std::rc::Rc;
+use rand::prelude::*;
+use rand::thread_rng;
 
 /// Flags for the `Wave`.
 #[derive(PartialEq)]
@@ -16,7 +18,8 @@ pub enum Flags {
 pub struct Wave {
     flags: Vec<Flags>,
     patterns: Vec<Pattern>,
-    superpositions: Vec<Element>,
+    patterns_total: usize,
+    elements: Vec<Element>,
 }
 
 impl Wave {
@@ -24,7 +27,140 @@ impl Wave {
         Wave {
             flags: vec![],
             patterns: vec![],
-            superpositions: vec![],
+            patterns_total: 0,
+            elements: vec![],
+        }
+    }
+
+    pub fn collapse_once(&mut self) {
+        if self.elements.is_empty() {
+            return;
+        }
+        
+        let mut selected_element = 0usize;
+        let mut greatest_entropy = 0.;
+
+        for (i, element) in self.elements.iter().enumerate() {
+            let ent = element.entropy(self.patterns_total);
+
+            if ent > greatest_entropy && ent != 0. {
+                greatest_entropy = ent;
+                selected_element = i;
+            } 
+        }
+
+        let borrow = &mut self.elements[selected_element];
+        let mut rng = thread_rng();
+        let choice = if self.flags.contains(&Flags::NoWeights) {
+            borrow.values.choose(&mut rng).unwrap()
+        } else {
+            borrow.values.choose_weighted(&mut rng, |v| {
+                v.count
+            }).unwrap()
+        };
+
+        // finish collapse!
+        let choice_value = choice.clone();
+        std::mem::drop(choice);
+        borrow.values.clear();
+        borrow.values.push(choice_value);
+
+        // propogate changes
+        self.propagate(selected_element);
+    }
+
+    pub fn propagate(&mut self, center_element: usize) {
+        let element = &self.elements[center_element];
+        let mut next_locations = neighbours(&element.position).to_vec();
+        let first_reference: (Vector2<usize>, Vec<Vec<Rule>>) = (element.position.clone(), element.values.iter().map(|v| v.rules.clone()).collect());
+        let mut previous_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
+
+        while !next_locations.is_empty() {
+            let mut elements_indexes: Vec<usize> = vec![];
+
+            // get indexes for the next locations
+            for loc in &next_locations {
+                let len = self.elements.len();
+
+                for i in 0..len {
+                    if self.elements[i].position == *loc {
+                        elements_indexes.push(i);
+                    }
+                }
+            }
+
+            if elements_indexes.is_empty() {
+                // propagation is finished!
+                // exit the function.
+                return;
+            }
+
+            let mut new_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![];
+
+            for index in elements_indexes {
+                let element = &mut self.elements[index];
+                let mut remove_list = vec![];
+                
+                for (i, value) in element.values.iter().enumerate() {
+                    for reference in &previous_references {
+                        if neighbours(&reference.0).contains(&element.position) {
+                            // check if there is a rule in the last iteration validating this value
+                            for rule_set in &reference.1 {
+                                for rule in rule_set {
+                                    if rule.content != value.contents {
+                                        // this value is invalid!
+                                        remove_list.push(i);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let mut removed = 0usize;
+
+                for i in remove_list {
+                    element.values.remove(i - removed);
+                    removed += 1;
+                }
+
+                let reference: (Vector2<usize>, Vec<Vec<Rule>>) = (element.position.clone(), element.values.iter().map(|v| v.rules.clone()).collect());
+                new_references.push(reference);
+            }
+
+            // prep for next propagation
+            previous_references = new_references;
+            next_locations.clear();
+
+            for reference in &previous_references {
+                let neighbours = neighbours(&reference.0);
+                let mut valid_neighbours: Vec<Vector2<usize>> = vec![];
+                let mut last = None;
+                let mut lowest_dist = f32::MAX;
+
+                // exclude the closest neighbour
+                for neighbour in neighbours {
+                    let cast = neighbour.cast::<f32>().unwrap();
+                    // apply pythagorean theorem to calculate distance
+                    let dist = (cast.x * cast.x + cast.y * cast.y).sqrt();
+
+                    if dist < lowest_dist {
+                        lowest_dist = dist;
+
+                        if let Some(previous) = last {
+                            valid_neighbours.push(previous)
+                        }
+
+                        last = Some(neighbour);
+                    }
+                }
+
+                debug_assert_eq!(valid_neighbours.len(), 3);
+
+                for neighbour in valid_neighbours {
+                    next_locations.push(neighbour)
+                }
+            }
         }
     }
 
@@ -41,7 +177,7 @@ impl Wave {
             }
         }
 
-        self.superpositions.clear();
+        self.elements.clear();
 
         let values_preset: Vec<Rc<Pattern>> = self.patterns
             .clone()
@@ -54,7 +190,7 @@ impl Wave {
                 let values = values_preset.clone();
                 let position = Vector2::new(x, y);
                 let element = Element::new(values, position);
-                self.superpositions.push(element);
+                self.elements.push(element);
             }
         }
 
@@ -168,12 +304,8 @@ impl Wave {
 
         dedup_patterns(&mut patterns);
 
-        for pattern in &mut patterns {
-            let total = Rc::new(initial_count);
-            pattern.total_count = Some(total.clone());
-        }
-
         self.patterns = patterns;
+        self.patterns_total = initial_count;
     }
 }
 
@@ -214,7 +346,6 @@ struct Pattern {
     id: usize,
     is_transform: bool,
     count: usize,
-    total_count: Option<Rc<usize>>,
     contents: Vec<Vec<usize>>,
     rules: Vec<Rule>,
 }
@@ -231,7 +362,6 @@ impl Pattern {
             id,
             is_transform: false,
             count: 1,
-            total_count: None,
             contents,
             rules: vec![],
         }
@@ -246,6 +376,7 @@ struct Rule {
     /// 2: down
     /// 3: left
     direction: u8,
+    /// The valid neighbour for the originating pattern of this rule.
     content: Vec<Vec<usize>>,
 }
 
@@ -268,22 +399,20 @@ impl Element {
         }
     }
 
-    fn entropy(&self) -> Option<f32> {
+    fn entropy(&self, patterns_total: usize) -> f32 {
         if self.values.is_empty() {
-            return None;
+            return 0.;
         }
 
         let mut total = 0f32;
 
         for pattern in self.values.iter() {
-            if let Some(total_count) = pattern.total_count {
-                let prob = pattern.count as f32 / *total_count as f32;
-                let entropy = prob * (1.0 / prob).log2(); 
-                total += entropy;
-            }
+            let prob = pattern.count as f32 / patterns_total as f32;
+            let entropy = prob * (1.0 / prob).log2(); 
+            total += entropy;
         }
 
-        Some(total)
+        total
     }
 }
 
@@ -297,18 +426,21 @@ mod tests {
     fn dedup_patterns_works() {
         let mut patterns = vec![
             Pattern {
+                is_transform: false,
                 id: 0,
                 count: 1,
                 contents: vec![vec![0]],
                 rules: vec![Rule::new(0, vec![vec![1]])],
             },
             Pattern {
+                is_transform: false,
                 id: 1,
                 count: 1,
                 contents: vec![vec![1]],
                 rules: vec![Rule::new(2, vec![vec![0]])],
             },
             Pattern {
+                is_transform: false,
                 id: 2,
                 count: 1,
                 contents: vec![vec![1]],

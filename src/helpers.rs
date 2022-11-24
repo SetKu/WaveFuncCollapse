@@ -449,3 +449,12 @@ where
 
 // input
 // }
+
+pub fn neighbours(origin: &Vector2<usize>) -> [Vector2<usize>; 4] {
+    [
+        Vector2::new(origin.x, origin.y - 1),
+        Vector2::new(origin.x + 1, origin.y),
+        Vector2::new(origin.x, origin.y + 1),
+        Vector2::new(origin.x - 1, origin.y),
+    ]
+}

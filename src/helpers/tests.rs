@@ -174,3 +174,12 @@ fn overlapping_adjacencies_works() {
 // let r3 = rotate_ninety(i3.to_owned(), 1);
 // assert_eq!(i3, r3);
 // }
+
+#[test]
+fn neighbours_works() {
+    let neighbours = neighbours(&Vector2::new(4, 4));
+    assert_eq!(neighbours[0], Vector2::new(4, 3));
+    assert_eq!(neighbours[1], Vector2::new(5, 4));
+    assert_eq!(neighbours[2], Vector2::new(4, 5));
+    assert_eq!(neighbours[3], Vector2::new(3, 4));
+}
