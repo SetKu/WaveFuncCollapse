@@ -35,6 +35,65 @@ impl Wave {
         }
     }
 
+    fn contradiction_occurred(&self) -> bool {
+        self.elements.iter().filter(|e| e.values.is_empty()).count() != 0
+    }
+
+    fn completely_collapsed(&self) -> bool {
+        self.elements.iter().all(|e| e.is_collapsed())
+    }
+
+    pub fn finalize(&self) -> Vec<Vec<usize>> {
+        if self.elements.is_empty() || self.contradiction_occurred() || !self.completely_collapsed()
+        {
+            return vec![];
+        }
+
+        let mut pairs: Vec<(usize, Vector2<usize>)> = vec![];
+        let chunk_size = dimensions_of(
+            &self
+                .elements
+                .first()
+                .unwrap()
+                .values
+                .first()
+                .unwrap()
+                .contents,
+        );
+
+        for element in self.elements.iter() {
+            let real_origin = Vector2 {
+                x: element.position.x * chunk_size.x,
+                y: element.position.y * chunk_size.y,
+            };
+
+            let contents = &element.values.first().unwrap().contents;
+
+            for (x, col) in contents.iter().enumerate() {
+                for (y, id) in col.iter().enumerate() {
+                    let real_pos = Vector2 {
+                        x: real_origin.x + x,
+                        y: real_origin.y + y,
+                    };
+
+                    pairs.push((*id, real_pos));
+                }
+            }
+        }
+
+        let mut max = Vector2::new(0, 0);
+        for pair in &pairs {
+            if pair.1.x >= max.x && pair.1.y >= max.y {
+                max = pair.1.clone();
+            }
+        }
+
+        debug_assert_ne!(max, Vector2::new(0, 0));
+
+        let result = arrayify(pairs, &max);
+        result
+    }
+
     pub fn collapse_once(&mut self) {
         if self.elements.is_empty() {
             return;
@@ -45,7 +104,7 @@ impl Wave {
 
         for (i, element) in self.elements.iter().enumerate() {
             let ent = element.entropy(self.patterns_total);
-            
+
             if ent == 0. {
                 continue;
             }
@@ -88,6 +147,7 @@ impl Wave {
             element.values.iter().map(|v| v.rules.clone()).collect(),
         );
         let mut previous_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
+        let mut finished_locations: Vec<Vector2<usize>> = vec![];
 
         while !next_locations.is_empty() {
             let mut elements_indexes: Vec<usize> = vec![];
@@ -145,7 +205,7 @@ impl Wave {
                         if !is_valid {
                             // if this reference has invalidated this value, no
                             // need to check other references.
-                            
+
                             // skip to removal!
                             surely_valid = false;
                             break;
@@ -179,6 +239,7 @@ impl Wave {
 
             // prep for next propagation
             previous_references = new_references;
+            finished_locations.append(&mut (next_locations.clone()));
             next_locations.clear();
 
             for reference in &previous_references {
@@ -206,9 +267,12 @@ impl Wave {
                     }
                 }
 
-                debug_assert_eq!(valid_neighbours.len(), 3);
-
                 for neighbour in valid_neighbours {
+                    // prevent an infinite loop by not running the same locations again
+                    if finished_locations.contains(&neighbour) {
+                        continue;
+                    }
+
                     next_locations.push(neighbour)
                 }
             }
@@ -314,8 +378,11 @@ impl Wave {
                     rule.content.reverse();
 
                     // only horizontal rules are reversed in place
-                    if rule.direction == 1 { rule.direction = 3 }
-                    else if rule.direction == 3 { rule.direction = 1 }
+                    if rule.direction == 1 {
+                        rule.direction = 3
+                    } else if rule.direction == 3 {
+                        rule.direction = 1
+                    }
                 };
 
                 let y_transf = |rule: &mut Rule| {
@@ -325,8 +392,11 @@ impl Wave {
                     }
 
                     // swap top and bottom rules
-                    if rule.direction == 0 { rule.direction = 2 }
-                    else if rule.direction == 2 { rule.direction = 0 }
+                    if rule.direction == 0 {
+                        rule.direction = 2
+                    } else if rule.direction == 2 {
+                        rule.direction = 0
+                    }
                 };
 
                 for rule in &mut mirrored_x.rules {
@@ -458,5 +528,7 @@ impl Element {
         total
     }
 
-    fn is_collapsed(&self) -> bool { self.values.len() == 1 }
+    fn is_collapsed(&self) -> bool {
+        self.values.len() == 1
+    }
 }

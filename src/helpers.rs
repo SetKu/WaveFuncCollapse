@@ -459,5 +459,8 @@ pub fn pos_neighbours(origin: &Vector2<usize>) -> Vec<Vector2<usize>> {
         Vector2::new(cast.x - 1, cast.y),
     ];
 
-    val.into_iter().filter(|v| v.x > 0 && v.y > 0).map(|v| v.cast::<usize>().unwrap()).collect()
+    val.into_iter()
+        .filter(|v| v.x > 0 && v.y > 0)
+        .map(|v| v.cast::<usize>().unwrap())
+        .collect()
 }
