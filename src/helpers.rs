@@ -450,11 +450,14 @@ where
 // input
 // }
 
-pub fn neighbours(origin: &Vector2<usize>) -> [Vector2<usize>; 4] {
-    [
-        Vector2::new(origin.x, origin.y - 1),
-        Vector2::new(origin.x + 1, origin.y),
-        Vector2::new(origin.x, origin.y + 1),
-        Vector2::new(origin.x - 1, origin.y),
-    ]
+pub fn pos_neighbours(origin: &Vector2<usize>) -> Vec<Vector2<usize>> {
+    let cast = origin.cast::<isize>().unwrap();
+    let val = vec![
+        Vector2::new(cast.x, cast.y - 1),
+        Vector2::new(cast.x + 1, cast.y),
+        Vector2::new(cast.x, cast.y + 1),
+        Vector2::new(cast.x - 1, cast.y),
+    ];
+
+    val.into_iter().filter(|v| v.x > 0 && v.y > 0).map(|v| v.cast::<usize>().unwrap()).collect()
 }

@@ -1,11 +1,14 @@
 pub mod helpers;
+use cgmath::Vector2;
 pub use helpers::BorderMode;
 use helpers::*;
-use cgmath::Vector2;
-use std::clone::Clone;
-use std::rc::Rc;
 use rand::prelude::*;
 use rand::thread_rng;
+use std::clone::Clone;
+use std::rc::Rc;
+
+#[cfg(test)]
+mod tests;
 
 /// Flags for the `Wave`.
 #[derive(PartialEq)]
@@ -36,27 +39,35 @@ impl Wave {
         if self.elements.is_empty() {
             return;
         }
-        
-        let mut selected_element = 0usize;
+
+        let mut selected_elements = vec![0usize];
         let mut greatest_entropy = 0.;
 
         for (i, element) in self.elements.iter().enumerate() {
             let ent = element.entropy(self.patterns_total);
+            
+            if ent == 0. {
+                continue;
+            }
 
-            if ent > greatest_entropy && ent != 0. {
+            if ent > greatest_entropy {
                 greatest_entropy = ent;
-                selected_element = i;
-            } 
+                selected_elements = vec![i];
+            } else if ent == greatest_entropy {
+                selected_elements.push(i);
+            }
         }
 
-        let borrow = &mut self.elements[selected_element];
         let mut rng = thread_rng();
+        let selected_element = selected_elements.choose(&mut rng).unwrap();
+        let borrow = &mut self.elements[*selected_element];
         let choice = if self.flags.contains(&Flags::NoWeights) {
             borrow.values.choose(&mut rng).unwrap()
         } else {
-            borrow.values.choose_weighted(&mut rng, |v| {
-                v.count
-            }).unwrap()
+            borrow
+                .values
+                .choose_weighted(&mut rng, |v| v.count)
+                .unwrap()
         };
 
         // finish collapse!
@@ -66,13 +77,16 @@ impl Wave {
         borrow.values.push(choice_value);
 
         // propogate changes
-        self.propagate(selected_element);
+        self.propagate(*selected_element);
     }
 
     pub fn propagate(&mut self, center_element: usize) {
         let element = &self.elements[center_element];
-        let mut next_locations = neighbours(&element.position).to_vec();
-        let first_reference: (Vector2<usize>, Vec<Vec<Rule>>) = (element.position.clone(), element.values.iter().map(|v| v.rules.clone()).collect());
+        let mut next_locations = pos_neighbours(&element.position).to_vec();
+        let first_reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
+            element.position.clone(),
+            element.values.iter().map(|v| v.rules.clone()).collect(),
+        );
         let mut previous_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
 
         while !next_locations.is_empty() {
@@ -100,31 +114,66 @@ impl Wave {
             for index in elements_indexes {
                 let element = &mut self.elements[index];
                 let mut remove_list = vec![];
-                
+
                 for (i, value) in element.values.iter().enumerate() {
+                    // assume all its references say its valid to start
+                    let mut surely_valid = true;
+
                     for reference in &previous_references {
-                        if neighbours(&reference.0).contains(&element.position) {
+                        let mut is_valid = false;
+
+                        // check if the reference is a neighbour of the current superposition
+                        // if it is, we refer to its rules when making deductions
+                        if pos_neighbours(&reference.0).contains(&element.position) {
                             // check if there is a rule in the last iteration validating this value
                             for rule_set in &reference.1 {
                                 for rule in rule_set {
-                                    if rule.content != value.contents {
-                                        // this value is invalid!
-                                        remove_list.push(i);
+                                    if rule.content == value.contents {
+                                        // this value is valid
+                                        is_valid = true;
+                                        break;
                                     }
+                                }
+
+                                if is_valid {
+                                    break;
                                 }
                             }
                         }
+
+                        // this code will run if no rule could be found to validate this value
+                        if !is_valid {
+                            // if this reference has invalidated this value, no
+                            // need to check other references.
+                            
+                            // skip to removal!
+                            surely_valid = false;
+                            break;
+                        }
+                    }
+
+                    if !surely_valid {
+                        // this value is invalid!
+                        remove_list.push(i);
                     }
                 }
 
-                let mut removed = 0usize;
+                debug_assert_eq!(remove_list.len(), {
+                    let mut a = remove_list.clone();
+                    a.dedup();
+                    a.len()
+                });
 
+                let mut removed = 0usize;
                 for i in remove_list {
                     element.values.remove(i - removed);
                     removed += 1;
                 }
 
-                let reference: (Vector2<usize>, Vec<Vec<Rule>>) = (element.position.clone(), element.values.iter().map(|v| v.rules.clone()).collect());
+                let reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
+                    element.position.clone(),
+                    element.values.iter().map(|v| v.rules.clone()).collect(),
+                );
                 new_references.push(reference);
             }
 
@@ -133,9 +182,9 @@ impl Wave {
             next_locations.clear();
 
             for reference in &previous_references {
-                let neighbours = neighbours(&reference.0);
+                let neighbours = pos_neighbours(&reference.0);
                 let mut valid_neighbours: Vec<Vector2<usize>> = vec![];
-                let mut last = None;
+                let mut last: Option<Vector2<usize>> = None;
                 let mut lowest_dist = f32::MAX;
 
                 // exclude the closest neighbour
@@ -152,6 +201,8 @@ impl Wave {
                         }
 
                         last = Some(neighbour);
+                    } else {
+                        valid_neighbours.push(neighbour);
                     }
                 }
 
@@ -179,7 +230,8 @@ impl Wave {
 
         self.elements.clear();
 
-        let values_preset: Vec<Rc<Pattern>> = self.patterns
+        let values_preset: Vec<Rc<Pattern>> = self
+            .patterns
             .clone()
             .into_iter()
             .map(|p| Rc::new(p))
@@ -262,11 +314,8 @@ impl Wave {
                     rule.content.reverse();
 
                     // only horizontal rules are reversed in place
-                    rule.direction = match rule.direction {
-                        1 => 3,
-                        3 => 1,
-                        _ => panic!(),
-                    }
+                    if rule.direction == 1 { rule.direction = 3 }
+                    else if rule.direction == 3 { rule.direction = 1 }
                 };
 
                 let y_transf = |rule: &mut Rule| {
@@ -276,11 +325,8 @@ impl Wave {
                     }
 
                     // swap top and bottom rules
-                    rule.direction = match rule.direction {
-                        0 => 2,
-                        2 => 0,
-                        _ => panic!(),
-                    }
+                    if rule.direction == 0 { rule.direction = 2 }
+                    else if rule.direction == 2 { rule.direction = 0 }
                 };
 
                 for rule in &mut mirrored_x.rules {
@@ -393,10 +439,7 @@ struct Element {
 
 impl Element {
     fn new(values: Vec<Rc<Pattern>>, position: Vector2<usize>) -> Self {
-        Self {
-            values,
-            position,
-        }
+        Self { values, position }
     }
 
     fn entropy(&self, patterns_total: usize) -> f32 {
@@ -408,96 +451,12 @@ impl Element {
 
         for pattern in self.values.iter() {
             let prob = pattern.count as f32 / patterns_total as f32;
-            let entropy = prob * (1.0 / prob).log2(); 
+            let entropy = prob * (1.0 / prob).log2();
             total += entropy;
         }
 
         total
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hasher;
-
-    #[test]
-    fn dedup_patterns_works() {
-        let mut patterns = vec![
-            Pattern {
-                is_transform: false,
-                id: 0,
-                count: 1,
-                contents: vec![vec![0]],
-                rules: vec![Rule::new(0, vec![vec![1]])],
-            },
-            Pattern {
-                is_transform: false,
-                id: 1,
-                count: 1,
-                contents: vec![vec![1]],
-                rules: vec![Rule::new(2, vec![vec![0]])],
-            },
-            Pattern {
-                is_transform: false,
-                id: 2,
-                count: 1,
-                contents: vec![vec![1]],
-                rules: vec![Rule::new(2, vec![vec![0]]), Rule::new(2, vec![vec![0]])],
-            },
-        ];
-
-        dedup_patterns(&mut patterns);
-
-        assert_eq!(patterns.len(), 2);
-        assert!(patterns.iter().all(|p| p.rules.len() == 1));
-        assert_eq!(
-            patterns.iter().map(|p| p.count).filter(|c| *c == 2).count(),
-            1,
-            "{:#?}",
-            patterns,
-        );
-
-        let mut hash_list: Vec<u64> = vec![];
-
-        for pattern in patterns.iter() {
-            let mut hasher = DefaultHasher::new();
-            hasher.write_usize(pattern.count);
-
-            for row in &pattern.contents {
-                for n in row {
-                    hasher.write_usize(*n);
-                }
-            }
-
-            for rule in &pattern.rules {
-                hasher.write_u8(rule.direction);
-
-                for row in &rule.content {
-                    for n in row {
-                        hasher.write_usize(*n);
-                    }
-                }
-            }
-
-            hash_list.push(hasher.finish());
-        }
-
-        let copy = hash_list.to_owned();
-        hash_list.dedup();
-
-        assert_eq!(copy, hash_list);
-    }
-
-    #[test]
-    fn wave_analyzer_works() {
-        let mut wave = Wave::new();
-        let input = vec![vec![0, 1, 2], vec![0, 1, 2], vec![0, 1, 2]];
-
-        wave.flags.push(Flags::NoTransforms);
-        wave.analyze(input, Vector2::new(2, 2), BorderMode::Clamp);
-
-        assert_eq!(wave.patterns.len(), 4);
-    }
+    fn is_collapsed(&self) -> bool { self.values.len() == 1 }
 }
