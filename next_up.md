@@ -6,4 +6,4 @@
 - [ ] Create collapse_all (generator).
 - [ ] Hook system up with main.rs.
   - [ ] Finish string reconstructor in main.rs.
-
+- [ ] History tracking and seeding system.

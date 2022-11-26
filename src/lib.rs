@@ -141,13 +141,15 @@ impl Wave {
 
     pub fn propagate(&mut self, center_element: usize) {
         let element = &self.elements[center_element];
-        let mut next_locations = pos_neighbours(&element.position).to_vec();
+        let center_pos = element.position.clone();
+        // let center_pos_cast = center_pos.clone().cast::<f32>().unwrap();
+        let mut next_locations = pos_neighbours(&center_pos);
         let first_reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
             element.position.clone(),
             element.values.iter().map(|v| v.rules.clone()).collect(),
         );
         let mut previous_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
-        let mut finished_locations: Vec<Vector2<usize>> = vec![];
+        let mut used_locations: Vec<Vec<Vector2<usize>>> = vec![];
 
         while !next_locations.is_empty() {
             let mut elements_indexes: Vec<usize> = vec![];
@@ -172,10 +174,10 @@ impl Wave {
             let mut new_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![];
 
             for index in elements_indexes {
-                let element = &mut self.elements[index];
+                let iter_element = &mut self.elements[index];
                 let mut remove_list = vec![];
 
-                for (i, value) in element.values.iter().enumerate() {
+                for (i, value) in iter_element.values.iter().enumerate() {
                     // assume all its references say its valid to start
                     let mut surely_valid = true;
 
@@ -184,7 +186,7 @@ impl Wave {
 
                         // check if the reference is a neighbour of the current superposition
                         // if it is, we refer to its rules when making deductions
-                        if pos_neighbours(&reference.0).contains(&element.position) {
+                        if pos_neighbours(&reference.0).contains(&iter_element.position) {
                             // check if there is a rule in the last iteration validating this value
                             for rule_set in &reference.1 {
                                 for rule in rule_set {
@@ -226,50 +228,73 @@ impl Wave {
 
                 let mut removed = 0usize;
                 for i in remove_list {
-                    element.values.remove(i - removed);
+                    iter_element.values.remove(i - removed);
                     removed += 1;
                 }
 
                 let reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
-                    element.position.clone(),
-                    element.values.iter().map(|v| v.rules.clone()).collect(),
+                    iter_element.position.clone(),
+                    iter_element.values.iter().map(|v| v.rules.clone()).collect(),
                 );
                 new_references.push(reference);
             }
 
             // prep for next propagation
             previous_references = new_references;
-            finished_locations.append(&mut (next_locations.clone()));
+            used_locations.push(next_locations.clone());
+            
+            if used_locations.len() == 3 {
+                // only 2 levels of knowledge are required to prune
+                // already used locations
+                used_locations.remove(0);
+            }
+
             next_locations.clear();
 
             for reference in &previous_references {
                 let neighbours = pos_neighbours(&reference.0);
-                let mut valid_neighbours: Vec<Vector2<usize>> = vec![];
-                let mut last: Option<Vector2<usize>> = None;
-                let mut lowest_dist = f32::MAX;
+                // let mut valid_neighbours: Vec<Vector2<usize>> = vec![];
+                // let mut last: Option<Vector2<usize>> = None;
+                // let mut lowest_dist = f32::MAX;
 
                 // exclude the closest neighbour
+                // for neighbour in neighbours {
+                    // let cast = neighbour.cast::<f32>().unwrap();
+                    // let diff = cast - center_pos_cast;
+                    // // apply pythagorean theorem to calculate distance
+                    // let dist = (diff.x * diff.x + diff.y * diff.y).sqrt();
+
+                    // if dist < lowest_dist {
+                        // lowest_dist = dist;
+
+                        // if let Some(previous) = last {
+                            // valid_neighbours.push(previous)
+                        // }
+
+                        // last = Some(neighbour);
+                    // } else {
+                        // valid_neighbours.push(neighbour);
+                    // }
+                // }
+
                 for neighbour in neighbours {
-                    let cast = neighbour.cast::<f32>().unwrap();
-                    // apply pythagorean theorem to calculate distance
-                    let dist = (cast.x * cast.x + cast.y * cast.y).sqrt();
+                    let mut valid = true;
 
-                    if dist < lowest_dist {
-                        lowest_dist = dist;
-
-                        if let Some(previous) = last {
-                            valid_neighbours.push(previous)
+                    // prevent an infinite loop by not running the same locations again
+                    for loc_set in &used_locations {
+                        for loc in loc_set {
+                            if *loc == neighbour {
+                                valid = false;
+                                break;
+                            }
                         }
 
-                        last = Some(neighbour);
-                    } else {
-                        valid_neighbours.push(neighbour);
+                        if !valid {
+                            break;
+                        }
                     }
-                }
 
-                for neighbour in valid_neighbours {
-                    // prevent an infinite loop by not running the same locations again
-                    if finished_locations.contains(&neighbour) {
+                    if !valid {
                         continue;
                     }
 
