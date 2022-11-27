@@ -582,10 +582,10 @@ impl Ord for Pattern {
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 struct Rule {
     /// direction corresponds to the top, right, bottom, left directions
-    direction: u8,
     /// 0: up
     /// 1: right
     /// 2: down
+    direction: u8,
     /// The valid neighbour for the originating pattern of this rule.
     content: Vec<Vec<usize>>,
 }
