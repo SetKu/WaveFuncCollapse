@@ -487,7 +487,18 @@ fn count_patterns(patterns: &mut Vec<Pattern>) {
     let copy = patterns.to_owned();
 
     for pattern in patterns.iter_mut() {
+        // counting doesn't deal with transforms,
+        // as they aren't part of the original
+        // patterns
+        if pattern.is_transform {
+            continue;
+        }
+
         for patcopy in &copy {
+            if patcopy.is_transform {
+                continue;
+            }
+
             if pattern.contents == patcopy.contents {
                 if pattern.id != patcopy.id {
                     pattern.count += 1;

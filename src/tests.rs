@@ -82,6 +82,57 @@ fn dedup_and_count_patterns_works() {
     hash_list.dedup();
 
     assert_eq!(copy, hash_list);
+
+    let mut second_test = vec![
+        Pattern {
+            id: 3,
+            is_transform: false,
+            count: 1,
+            contents: vec![vec![2]],
+            rules: vec![
+                Rule::new(1, vec![vec![1]]),
+                Rule::new(3, vec![vec![1]]),
+            ],
+        },
+        Pattern {
+            id: 0,
+            is_transform: false,
+            count: 1,
+            contents: vec![vec![0]],
+            rules: vec![
+                Rule::new(0, vec![vec![1]]),
+                Rule::new(1, vec![vec![1]]),
+                Rule::new(2, vec![vec![1]]),
+                Rule::new(3, vec![vec![1]]),
+            ],
+        },
+        Pattern {
+            id: 10,
+            is_transform: true,
+            count: 1,
+            contents: vec![vec![2]],
+            rules: vec![
+                Rule::new(0, vec![vec![1]]),
+            ],
+        }
+    ];
+
+    count_patterns(&mut second_test);
+    dedup_patterns(&mut second_test);
+
+    assert_eq!(second_test.len(), 2, "{:#?}", second_test);
+    assert_eq!(second_test[1], Pattern {
+            id: 3,
+            is_transform: false,
+            count: 1,
+            contents: vec![vec![2]],
+            rules: vec![
+                Rule::new(0, vec![vec![1]]),
+                Rule::new(1, vec![vec![1]]),
+                Rule::new(3, vec![vec![1]]),
+            ],
+        }
+    );
 }
 
 #[test]
@@ -92,7 +143,7 @@ fn wave_analyzer_works() {
     wave.flags.push(Flags::NoTransforms);
     wave.analyze(input, Vector2::new(2, 2), BorderMode::Clamp);
 
-    assert_eq!(wave.patterns.len(), 4);
+    assert_eq!(wave.patterns.len(), 2);
 }
 
 // #[test]
