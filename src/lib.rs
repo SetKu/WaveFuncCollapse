@@ -252,40 +252,22 @@ impl Wave {
                 let mut values_to_remove = vec![];
 
                 for (value_idx, value) in element.values.iter().enumerate() {
-                    let mut valid = true;
+                    let mut valid = false;
 
                     // now we search for a valid reason to keep the element!
-                    let mut references_found = 0;
-
-                    for reference in &references {
+                    'refloop: for reference in &references {
                         if element_neighbours.contains(&reference.0) {
-                            references_found += 1;
-                            let mut found_validation = false;
-
                             let direction = orthog_direction(&reference.0, &element.position);
 
-                            'ruleloop: for rule_set in &reference.1 {
+                            for rule_set in &reference.1 {
                                 for rule in rule_set {
                                     if rule.content == value.contents && rule.direction == direction
                                     {
-                                        found_validation = true;
-                                        break 'ruleloop;
+                                        valid = true;
+                                        break 'refloop;
                                     }
                                 }
                             }
-
-                            if !found_validation {
-                                valid = false;
-                                break;
-                            }
-                        } else {
-                            continue;
-                        }
-
-                        // the maximum number of references for any
-                        // given element is 2.
-                        if references_found == 2 {
-                            break;
                         }
                     }
 
@@ -330,7 +312,7 @@ impl Wave {
                     current_locs.push(loc);
                 }
             }
-            
+
             current_locs.dedup();
         }
     }
@@ -351,15 +333,15 @@ impl Wave {
             .clone()
             .into_iter()
             // .filter(|p| {
-                // if self.flags.contains(&Flags::NoTransforms) {
-                    // if p.is_transform {
-                        // false
-                    // } else {
-                        // true
-                    // }
-                // } else {
-                    // true
-                // }
+            // if self.flags.contains(&Flags::NoTransforms) {
+            // if p.is_transform {
+            // false
+            // } else {
+            // true
+            // }
+            // } else {
+            // true
+            // }
             // })
             .map(|p| Rc::new(p))
             .collect();
@@ -484,7 +466,7 @@ impl Wave {
                     y_transf(rule);
                 }
 
-                new_patterns = vec![mirrored_x, mirrored_y, combination];
+                new_patterns.append(&mut (vec![mirrored_x, mirrored_y, combination]));
             }
 
             patterns.append(&mut new_patterns);
@@ -541,6 +523,7 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
         pattern.rules.dedup();
     }
 
+    patterns.sort();
     patterns.dedup();
 }
 
@@ -551,14 +534,6 @@ struct Pattern {
     count: usize,
     contents: Vec<Vec<usize>>,
     rules: Vec<Rule>,
-}
-
-impl PartialEq for Pattern {
-    fn eq(&self, other: &Self) -> bool {
-        self.contents == other.contents
-            && self.rules == other.rules
-            && self.count == other.count
-    }
 }
 
 impl Pattern {
@@ -573,14 +548,33 @@ impl Pattern {
     }
 }
 
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.contents == other.contents && self.rules == other.rules && self.count == other.count
+    }
+}
+
+impl Eq for Pattern { }
+
+impl PartialOrd for Pattern {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.contents.cmp(&other.contents))
+    }
+}
+
+impl Ord for Pattern {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.contents.cmp(&other.contents)
+    }
+}
+
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 struct Rule {
     /// direction corresponds to the top, right, bottom, left directions
+    direction: u8,
     /// 0: up
     /// 1: right
     /// 2: down
-    /// 3: left
-    direction: u8,
     /// The valid neighbour for the originating pattern of this rule.
     content: Vec<Vec<usize>>,
 }

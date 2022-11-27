@@ -177,7 +177,7 @@ fn overlapping_adjacencies_works() {
 
 #[test]
 fn neighbours_works() {
-    let neighbours = pos_neighbours(&Vector2::new(4, 4));
+    let neighbours = noneg_neighbours(&Vector2::new(4, 4));
     assert_eq!(neighbours[0], Vector2::new(4, 3));
     assert_eq!(neighbours[1], Vector2::new(5, 4));
     assert_eq!(neighbours[2], Vector2::new(4, 5));

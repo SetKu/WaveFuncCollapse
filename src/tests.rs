@@ -1,7 +1,6 @@
 use super::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
-use std::time::{Duration, Instant};
 
 #[test]
 fn wave_collapse_once_works() {
@@ -16,7 +15,7 @@ fn wave_collapse_once_works() {
 }
 
 #[test]
-fn dedup_patterns_works() {
+fn dedup_and_count_patterns_works() {
     let mut patterns = vec![
         Pattern {
             is_transform: false,
@@ -41,10 +40,12 @@ fn dedup_patterns_works() {
         },
     ];
 
+    count_patterns(&mut patterns);
     dedup_patterns(&mut patterns);
 
     assert_eq!(patterns.len(), 2);
     assert!(patterns.iter().all(|p| p.rules.len() == 1));
+
     assert_eq!(
         patterns.iter().map(|p| p.count).filter(|c| *c == 2).count(),
         1,

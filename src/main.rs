@@ -161,12 +161,12 @@ fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, ch
         }
 
         for vals in row {
-            println!("VALS RAW IS {:?}", vals);
             let mut mapped: Vec<char> = vals
                 .iter()
                 .map(|v| source_map.iter().find(|s| s.0 == *v).unwrap().1)
                 .collect();
             mapped.sort();
+
             let mut string = "(".to_string();
 
             for ch in mapped {
