@@ -7,7 +7,7 @@ use cgmath::Vector2;
 use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
 use std::path::PathBuf;
-use wfc::{helpers::xy_swap, BorderMode, Wave};
+use wfc::{helpers::xy_swap, BorderMode, Flags, Wave};
 
 fn main() -> Result<(), String> {
     let matches = Command::new("Wave Function Collapse")
@@ -46,7 +46,7 @@ fn main() -> Result<(), String> {
     let use_transforms = !matches.get_flag("notransforms");
     let simple_output = matches.get_flag("quiet");
     let max_contradictions = matches.get_one::<usize>("contradictions");
-    let usewhitespace = matches.get_flag("usewhitespace");
+    let use_whitespace = matches.get_flag("usewhitespace");
 
     if simple_output {
         print = false;
@@ -68,7 +68,7 @@ fn main() -> Result<(), String> {
         panic!("The input sample cannot be empty")
     }
 
-    let (sample, source_map) = deconstruct_string(&input, usewhitespace);
+    let (sample, source_map) = deconstruct_string(&input, use_whitespace);
 
     debug_assert_eq!(sample.len(), input.lines().count());
 
@@ -88,18 +88,35 @@ fn main() -> Result<(), String> {
         Vector2::new(1, 1)
     };
 
-    let swapped = xy_swap(sample.to_owned());
     let mut wave = Wave::new();
-    wave.analyze(swapped, chunk_size, BorderMode::Clamp);
+
+    if !use_transforms {
+        wave.flags.push(Flags::NoTransforms);
+    }
+
+    if !use_weights {
+        wave.flags.push(Flags::NoWeights);
+    }
+
+    wave.analyze(sample, chunk_size, BorderMode::Clamp);
     wave.fill(Vector2::new(width, height))?;
+
+    let result = wave.wip_rep()?;
+    let string = construct_wip_string(result, &source_map);
+    println!("{}", string);
+
     wave.collapse_once();
+
+    let result = wave.wip_rep()?;
+    let string = construct_wip_string(result, &source_map);
+    println!("{}", string);
 
     Ok(())
 }
 
 fn deconstruct_string(
     input: &String,
-    usewhitespace: bool,
+    use_whitespace: bool,
 ) -> (Vec<Vec<usize>>, Vec<(usize, char)>) {
     // convert string input into a usable bitset-based sample
     let mut sample: Vec<Vec<usize>> = vec![];
@@ -109,7 +126,7 @@ fn deconstruct_string(
 
     for (row, line) in input.lines().enumerate() {
         for (_, ch) in line.chars().enumerate() {
-            if !usewhitespace {
+            if !use_whitespace {
                 if ch.is_whitespace() {
                     continue;
                 }
@@ -129,9 +146,55 @@ fn deconstruct_string(
         }
     }
 
-    (sample, source_map)
+    (xy_swap(sample), source_map)
 }
 
-fn reconstruct_string(input: &Vec<Vec<usize>>, source_map: Vec<(usize, char)>) -> String {
-    todo!()
+fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, char)>) -> String {
+    let swapped = xy_swap(input);
+    let mut output = "".to_string();
+    let mut lines_added = 0;
+
+    for (r, row) in swapped.iter().enumerate() {
+        if lines_added < r + 1 {
+            output.push('\n');
+            lines_added += 1;
+        }
+
+        for vals in row {
+            println!("VALS RAW IS {:?}", vals);
+            let mut mapped: Vec<char> = vals
+                .iter()
+                .map(|v| source_map.iter().find(|s| s.0 == *v).unwrap().1)
+                .collect();
+            mapped.sort();
+            let mut string = "(".to_string();
+
+            for ch in mapped {
+                string.push_str(&format!("{}", ch));
+            }
+
+            string.push(')');
+            output.push_str(&string);
+        }
+    }
+
+    output
+}
+
+fn reconstruct_string(input: Vec<Vec<usize>>, source_map: &Vec<(usize, char)>) -> String {
+    let swapped = xy_swap(input);
+    let mut output = "".to_string();
+
+    for (r, row) in swapped.iter().enumerate() {
+        if output.lines().count() < r + 1 {
+            output.push('\n');
+        }
+
+        for id in row {
+            let real_val = source_map.iter().find(|s| s.0 == *id).unwrap().1;
+            output.push_str(&format!("{}, ", real_val));
+        }
+    }
+
+    output
 }

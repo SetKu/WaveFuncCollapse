@@ -19,10 +19,12 @@ pub enum Flags {
 
 /// Encapsulation for the Wave Function Collapse implementation.
 pub struct Wave {
-    flags: Vec<Flags>,
+    pub flags: Vec<Flags>,
     patterns: Vec<Pattern>,
     patterns_total: usize,
     elements: Vec<Element>,
+    chunk_size: Vector2<usize>,
+    chunk_fill_size: Vector2<usize>,
 }
 
 impl Wave {
@@ -32,8 +34,44 @@ impl Wave {
             patterns: vec![],
             patterns_total: 0,
             elements: vec![],
+            chunk_size: Vector2::new(0, 0),
+            chunk_fill_size: Vector2::new(0, 0),
         }
     }
+
+    // pub fn collapse_all(&mut self, print: bool) -> Result<(), String> {
+    // let mut failures = 0;
+    // let mut iterations = 0;
+
+    // let mut max = Vector2::new(0, 0);
+
+    // for e in &self.elements {
+    // if e.position.x >= max.x && e.position.y >= max.y {
+    // max = e.position.clone();
+    // }
+    // }
+
+    // if max == Vector2::new(0, 0) {
+    // return Ok(());
+    // }
+
+    // while !self.completely_collapsed() {
+    // self.collapse_once();
+
+    // if self.contradiction_occurred() {
+    // failures += 1;
+    // self.fill(max)?;
+    // iterations = 0;
+    // println!("Failure {}", failures);
+    // continue;
+    // }
+
+    // println!("Iteration {} Attempt {}", iterations + 1, failures + 1);
+    // iterations += 1;
+    // }
+
+    // Ok(())
+    // }
 
     fn contradiction_occurred(&self) -> bool {
         self.elements.iter().filter(|e| e.values.is_empty()).count() != 0
@@ -43,28 +81,28 @@ impl Wave {
         self.elements.iter().all(|e| e.is_collapsed())
     }
 
-    pub fn finalize(&self) -> Vec<Vec<usize>> {
-        if self.elements.is_empty() || self.contradiction_occurred() || !self.completely_collapsed()
-        {
-            return vec![];
+    pub fn perfect_rep(&self) -> Result<Vec<Vec<usize>>, String> {
+        if self.elements.is_empty() {
+            return Err("There are no superpositions to create a representation from".to_owned());
+        }
+
+        if self.contradiction_occurred() {
+            return Err(
+                "A contradiction occurred preventing the formation of a perfect representation"
+                    .to_owned(),
+            );
+        }
+
+        if !self.completely_collapsed() {
+            return Err("The superpositions aren't completely collapsed yet".to_owned());
         }
 
         let mut pairs: Vec<(usize, Vector2<usize>)> = vec![];
-        let chunk_size = dimensions_of(
-            &self
-                .elements
-                .first()
-                .unwrap()
-                .values
-                .first()
-                .unwrap()
-                .contents,
-        );
 
         for element in self.elements.iter() {
             let real_origin = Vector2 {
-                x: element.position.x * chunk_size.x,
-                y: element.position.y * chunk_size.y,
+                x: element.position.x * self.chunk_size.x,
+                y: element.position.y * self.chunk_size.y,
             };
 
             let contents = &element.values.first().unwrap().contents;
@@ -81,17 +119,51 @@ impl Wave {
             }
         }
 
-        let mut max = Vector2::new(0, 0);
-        for pair in &pairs {
-            if pair.1.x >= max.x && pair.1.y >= max.y {
-                max = pair.1.clone();
+        let result = arrayify(pairs, &self.true_size());
+        Ok(result)
+    }
+
+    fn true_size(&self) -> Vector2<usize> {
+        Vector2 {
+            x: self.chunk_fill_size.x * self.chunk_size.x,
+            y: self.chunk_fill_size.y * self.chunk_size.y,
+        }
+    }
+
+    pub fn wip_rep(&self) -> Result<Vec<Vec<Vec<usize>>>, String> {
+        if self.elements.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut pairs: Vec<(Vec<usize>, Vector2<usize>)> = vec![];
+
+        for element in &self.elements {
+            let real_origin = Vector2 {
+                x: element.position.x * self.chunk_size.x,
+                y: element.position.y * self.chunk_size.y,
+            };
+
+            for cx in 0..self.chunk_size.x {
+                for cy in 0..self.chunk_size.y {
+                    let mut new_pair = (
+                        vec![],
+                        Vector2 {
+                            x: real_origin.x + cx,
+                            y: real_origin.y + cy,
+                        },
+                    );
+
+                    for value in &element.values {
+                        new_pair.0.push(value.contents[cx][cy]);
+                    }
+
+                    pairs.push(new_pair);
+                }
             }
         }
 
-        debug_assert_ne!(max, Vector2::new(0, 0));
-
-        let result = arrayify(pairs, &max);
-        result
+        let result = arrayify(pairs, &self.true_size());
+        Ok(result)
     }
 
     pub fn collapse_once(&mut self) {
@@ -140,181 +212,136 @@ impl Wave {
     }
 
     pub fn propagate(&mut self, center_element: usize) {
-        let element = &self.elements[center_element];
-        let center_pos = element.position.clone();
-        // let center_pos_cast = center_pos.clone().cast::<f32>().unwrap();
-        let mut next_locations = pos_neighbours(&center_pos);
-        let first_reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
-            element.position.clone(),
-            element.values.iter().map(|v| v.rules.clone()).collect(),
+        let center = &self.elements[center_element];
+        let center_pos = center.position.clone();
+        std::mem::drop(center);
+
+        let mut current_locs = noneg_neighbours(&center_pos);
+
+        let first_reference = (
+            center_pos.clone(),
+            center.values.iter().map(|v| v.rules.clone()).collect(),
         );
-        let mut previous_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
-        let mut used_locations: Vec<Vec<Vector2<usize>>> = vec![];
 
-        while !next_locations.is_empty() {
-            let mut elements_indexes: Vec<usize> = vec![];
+        let mut references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![first_reference];
+        let mut banned_locs: Vec<Vec<Vector2<usize>>> = vec![vec![center_pos.clone()]];
 
-            // get indexes for the next locations
-            for loc in &next_locations {
-                let len = self.elements.len();
+        loop {
+            let mut indexes = vec![];
 
-                for i in 0..len {
+            for loc in &current_locs {
+                for i in 0..self.elements.len() {
                     if self.elements[i].position == *loc {
-                        elements_indexes.push(i);
+                        indexes.push(i);
                     }
                 }
             }
 
-            if elements_indexes.is_empty() {
-                // propagation is finished!
-                // exit the function.
+            if indexes.is_empty() {
+                // propagation finished!
                 return;
             }
 
-            let mut new_references: Vec<(Vector2<usize>, Vec<Vec<Rule>>)> = vec![];
+            let mut new_references = vec![];
+            let mut new_locs = vec![];
 
-            for index in elements_indexes {
-                let iter_element = &mut self.elements[index];
-                let mut remove_list = vec![];
+            // *** Value Pruning ***
+            for i in indexes {
+                let element = &mut self.elements[i];
+                let element_neighbours = noneg_neighbours(&element.position);
+                let mut values_to_remove = vec![];
 
-                for (i, value) in iter_element.values.iter().enumerate() {
-                    // assume all its references say its valid to start
-                    let mut surely_valid = true;
-
-                    for reference in &previous_references {
-                        let mut is_valid = false;
-
-                        // check if the reference is a neighbour of the current superposition
-                        // if it is, we refer to its rules when making deductions
-                        if pos_neighbours(&reference.0).contains(&iter_element.position) {
-                            // check if there is a rule in the last iteration validating this value
-                            for rule_set in &reference.1 {
-                                for rule in rule_set {
-                                    if rule.content == value.contents {
-                                        // this value is valid
-                                        is_valid = true;
-                                        break;
-                                    }
-                                }
-
-                                if is_valid {
-                                    break;
-                                }
-                            }
-                        }
-
-                        // this code will run if no rule could be found to validate this value
-                        if !is_valid {
-                            // if this reference has invalidated this value, no
-                            // need to check other references.
-
-                            // skip to removal!
-                            surely_valid = false;
-                            break;
-                        }
-                    }
-
-                    if !surely_valid {
-                        // this value is invalid!
-                        remove_list.push(i);
-                    }
-                }
-
-                debug_assert_eq!(remove_list.len(), {
-                    let mut a = remove_list.clone();
-                    a.dedup();
-                    a.len()
-                });
-
-                let mut removed = 0usize;
-                for i in remove_list {
-                    iter_element.values.remove(i - removed);
-                    removed += 1;
-                }
-
-                let reference: (Vector2<usize>, Vec<Vec<Rule>>) = (
-                    iter_element.position.clone(),
-                    iter_element.values.iter().map(|v| v.rules.clone()).collect(),
-                );
-                new_references.push(reference);
-            }
-
-            // prep for next propagation
-            previous_references = new_references;
-            used_locations.push(next_locations.clone());
-            
-            if used_locations.len() == 3 {
-                // only 2 levels of knowledge are required to prune
-                // already used locations
-                used_locations.remove(0);
-            }
-
-            next_locations.clear();
-
-            for reference in &previous_references {
-                let neighbours = pos_neighbours(&reference.0);
-                // let mut valid_neighbours: Vec<Vector2<usize>> = vec![];
-                // let mut last: Option<Vector2<usize>> = None;
-                // let mut lowest_dist = f32::MAX;
-
-                // exclude the closest neighbour
-                // for neighbour in neighbours {
-                    // let cast = neighbour.cast::<f32>().unwrap();
-                    // let diff = cast - center_pos_cast;
-                    // // apply pythagorean theorem to calculate distance
-                    // let dist = (diff.x * diff.x + diff.y * diff.y).sqrt();
-
-                    // if dist < lowest_dist {
-                        // lowest_dist = dist;
-
-                        // if let Some(previous) = last {
-                            // valid_neighbours.push(previous)
-                        // }
-
-                        // last = Some(neighbour);
-                    // } else {
-                        // valid_neighbours.push(neighbour);
-                    // }
-                // }
-
-                for neighbour in neighbours {
+                for (value_idx, value) in element.values.iter().enumerate() {
                     let mut valid = true;
 
-                    // prevent an infinite loop by not running the same locations again
-                    for loc_set in &used_locations {
-                        for loc in loc_set {
-                            if *loc == neighbour {
+                    // now we search for a valid reason to keep the element!
+                    let mut references_found = 0;
+
+                    for reference in &references {
+                        if element_neighbours.contains(&reference.0) {
+                            references_found += 1;
+                            let mut found_validation = false;
+
+                            let direction = orthog_direction(&reference.0, &element.position);
+
+                            'ruleloop: for rule_set in &reference.1 {
+                                for rule in rule_set {
+                                    if rule.content == value.contents && rule.direction == direction
+                                    {
+                                        found_validation = true;
+                                        break 'ruleloop;
+                                    }
+                                }
+                            }
+
+                            if !found_validation {
                                 valid = false;
                                 break;
                             }
+                        } else {
+                            continue;
                         }
 
-                        if !valid {
+                        // the maximum number of references for any
+                        // given element is 2.
+                        if references_found == 2 {
                             break;
                         }
                     }
 
                     if !valid {
+                        values_to_remove.push(value_idx);
+                    }
+                }
+
+                remove_indexes(&mut element.values, values_to_remove);
+
+                let reference = (
+                    element.position.clone(),
+                    element
+                        .values
+                        .iter()
+                        .map(|v| v.rules.clone())
+                        .collect::<Vec<Vec<Rule>>>(),
+                );
+
+                new_references.push(reference);
+
+                new_locs.push(noneg_neighbours(&element.position));
+            }
+
+            // *** Clean Up and Preparation ***
+            references = new_references;
+            banned_locs.push(current_locs.clone());
+
+            if banned_locs.len() == 3 {
+                banned_locs.remove(0);
+            }
+
+            current_locs.clear();
+
+            for neighbour_set in new_locs {
+                for loc in neighbour_set {
+                    // check if banned
+                    if banned_locs.iter().find(|s| s.contains(&loc)).is_some() {
                         continue;
                     }
 
-                    next_locations.push(neighbour)
+                    current_locs.push(loc);
                 }
             }
+            
+            current_locs.dedup();
         }
     }
 
     pub fn fill(&mut self, size: Vector2<usize>) -> Result<(), String> {
-        if let Some(first) = self.patterns.first() {
-            let chunk_size = dimensions_of(&first.contents);
+        if size.x % self.chunk_size.x != 0 {
+            return Err("The output width must be a factor of the chunk size".to_owned());
+        }
 
-            if size.x % chunk_size.x != 0 {
-                return Err("The output width must be a factor of the chunk size".to_owned());
-            }
-
-            if size.y % chunk_size.y != 0 {
-                return Err("The output height must be a factor of the chunk size".to_owned());
-            }
+        if size.y % self.chunk_size.y != 0 {
+            return Err("The output height must be a factor of the chunk size".to_owned());
         }
 
         self.elements.clear();
@@ -323,11 +350,27 @@ impl Wave {
             .patterns
             .clone()
             .into_iter()
+            // .filter(|p| {
+                // if self.flags.contains(&Flags::NoTransforms) {
+                    // if p.is_transform {
+                        // false
+                    // } else {
+                        // true
+                    // }
+                // } else {
+                    // true
+                // }
+            // })
             .map(|p| Rc::new(p))
             .collect();
 
-        for x in 0..size.x {
-            for y in 0..size.y {
+        let chunk_fill_size = Vector2 {
+            x: size.x / self.chunk_size.x,
+            y: size.y / self.chunk_size.y,
+        };
+
+        for x in 0..chunk_fill_size.x {
+            for y in 0..chunk_fill_size.y {
                 let values = values_preset.clone();
                 let position = Vector2::new(x, y);
                 let element = Element::new(values, position);
@@ -335,9 +378,12 @@ impl Wave {
             }
         }
 
+        self.chunk_fill_size = chunk_fill_size;
+
         Ok(())
     }
 
+    /// Please note, the flag `Flag::NoTransforms` must be set at this point for it to be registered.
     pub fn analyze(
         &mut self,
         input: Vec<Vec<usize>>,
@@ -352,10 +398,10 @@ impl Wave {
         let mut id_counter = 0usize;
 
         for adjacency in adjacencies {
-            let mut pattern = Pattern::new(id_counter, adjacency.origin.to_owned());
+            let mut pattern = Pattern::new(id_counter, adjacency.origin_content.to_owned());
             id_counter += 1;
 
-            for (i, neighbour) in adjacency.neighbours.into_iter().enumerate() {
+            for (i, neighbour) in adjacency.neighbours_content.into_iter().enumerate() {
                 if let Some(unwrapped) = neighbour {
                     let rule = Rule::new(i as u8, unwrapped);
                     pattern.rules.push(rule);
@@ -365,6 +411,7 @@ impl Wave {
             patterns.push(pattern);
         }
 
+        count_patterns(&mut patterns);
         dedup_patterns(&mut patterns);
 
         if !self.flags.contains(&Flags::NoTransforms) {
@@ -447,6 +494,24 @@ impl Wave {
 
         self.patterns = patterns;
         self.patterns_total = initial_count;
+        self.chunk_size = chunk_size;
+    }
+}
+
+/// If counting, always ensure that you count up your patterns before deduplicating them.
+///
+/// This function will do nothing if the patterns are deduplicated.
+fn count_patterns(patterns: &mut Vec<Pattern>) {
+    let copy = patterns.to_owned();
+
+    for pattern in patterns.iter_mut() {
+        for patcopy in &copy {
+            if pattern.contents == patcopy.contents {
+                if pattern.id != patcopy.id {
+                    pattern.count += 1;
+                }
+            }
+        }
     }
 }
 
@@ -457,8 +522,6 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
         for patcopy in &copy {
             if pattern.contents == patcopy.contents {
                 if pattern.id != patcopy.id {
-                    pattern.count += 1;
-
                     // check duplicate's rules
                     for rule in &patcopy.rules {
                         // push the new rule
@@ -466,8 +529,6 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
                             pattern.rules.push(rule.to_owned());
                         }
                     }
-
-                    debug_assert_ne!(pattern, patcopy);
                 }
             }
         }
@@ -476,6 +537,7 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     std::mem::drop(copy);
 
     for pattern in patterns.iter_mut() {
+        pattern.rules.sort();
         pattern.rules.dedup();
     }
 
@@ -493,7 +555,9 @@ struct Pattern {
 
 impl PartialEq for Pattern {
     fn eq(&self, other: &Self) -> bool {
-        self.contents == other.contents && self.rules == other.rules && self.count == other.count
+        self.contents == other.contents
+            && self.rules == other.rules
+            && self.count == other.count
     }
 }
 
@@ -509,7 +573,7 @@ impl Pattern {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 struct Rule {
     /// direction corresponds to the top, right, bottom, left directions
     /// 0: up

@@ -84,19 +84,19 @@ fn overlapping_adjacencies_works() {
 
     assert_eq!(result.len(), 9);
 
-    let origin = xy_swap(result[0].origin.to_owned());
+    let origin = xy_swap(result[0].origin_content.to_owned());
     let e0 = vec![vec![0, 1], vec![0, 0]];
     assert_eq!(origin, e0);
 
-    assert!(result[0].neighbours[0].is_none());
-    assert!(result[0].neighbours[3].is_none());
+    assert!(result[0].neighbours_content[2].is_none());
+    assert!(result[0].neighbours_content[3].is_none());
 
-    let i1r = result[0].neighbours[1].as_ref().unwrap();
+    let i1r = result[0].neighbours_content[1].as_ref().unwrap();
     let i1 = xy_swap(i1r.to_owned());
     let e1 = vec![vec![1, 2], vec![1, 1]];
     assert_eq!(i1, e1);
 
-    let i2r = result[0].neighbours[2].as_ref().unwrap();
+    let i2r = result[0].neighbours_content[0].as_ref().unwrap();
     let i2 = xy_swap(i2r.to_owned());
     let e2 = vec![vec![1, 0], vec![1, 1]];
     assert_eq!(i2, e2);
@@ -182,4 +182,12 @@ fn neighbours_works() {
     assert_eq!(neighbours[1], Vector2::new(5, 4));
     assert_eq!(neighbours[2], Vector2::new(4, 5));
     assert_eq!(neighbours[3], Vector2::new(3, 4));
+}
+
+#[test]
+fn remove_indexes_works() {
+    let mut input = vec![5, 10, 15, 20, 25, 30];
+    let to_remove = vec![0, 2, 4];
+    remove_indexes(&mut input, to_remove);
+    assert_eq!(input, vec![10, 20, 30]);
 }

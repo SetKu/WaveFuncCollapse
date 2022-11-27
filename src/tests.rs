@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 #[test]
 fn wave_collapse_once_works() {
@@ -96,19 +96,19 @@ fn wave_analyzer_works() {
 
 // #[test]
 // fn collapse_time_reasonable() {
-    // let sample = vec![
-        // vec![0, 1, 2, 3],
-        // vec![1, 2, 2, 3],
-        // vec![2, 2, 2, 3],
-        // vec![2, 2, 2, 3],
-    // ];
+// let sample = vec![
+// vec![0, 1, 2, 3],
+// vec![1, 2, 2, 3],
+// vec![2, 2, 2, 3],
+// vec![2, 2, 2, 3],
+// ];
 
-    // let mut wave = Wave::new();
-    // wave.analyze(sample, Vector2::new(2, 2), BorderMode::Clamp);
-    // wave.fill(Vector2::new(6, 6)).expect("Fill failed.");
-    
-    // let start = Instant::now();
-    // wave.collapse_once();
-    // let time = start.elapsed();
-    // assert!(time < Duration::from_secs(1));
+// let mut wave = Wave::new();
+// wave.analyze(sample, Vector2::new(2, 2), BorderMode::Clamp);
+// wave.fill(Vector2::new(6, 6)).expect("Fill failed.");
+
+// let start = Instant::now();
+// wave.collapse_once();
+// let time = start.elapsed();
+// assert!(time < Duration::from_secs(1));
 // }
