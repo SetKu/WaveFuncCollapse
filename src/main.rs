@@ -101,13 +101,13 @@ fn main() -> Result<(), String> {
     wave.analyze(sample, chunk_size, BorderMode::Clamp);
     wave.fill(Vector2::new(width, height))?;
 
-    let result = wave.wip_rep()?;
+    let result = wave.current_rep();
     let string = construct_wip_string(result, &source_map);
     println!("{}", string);
 
     wave.collapse_once();
 
-    let result = wave.wip_rep()?;
+    let result = wave.current_rep();
     let string = construct_wip_string(result, &source_map);
     println!("{}", string);
 

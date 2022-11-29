@@ -89,10 +89,7 @@ fn dedup_and_count_patterns_works() {
             is_transform: false,
             count: 1,
             contents: vec![vec![2]],
-            rules: vec![
-                Rule::new(1, vec![vec![1]]),
-                Rule::new(3, vec![vec![1]]),
-            ],
+            rules: vec![Rule::new(1, vec![vec![1]]), Rule::new(3, vec![vec![1]])],
         },
         Pattern {
             id: 0,
@@ -111,17 +108,17 @@ fn dedup_and_count_patterns_works() {
             is_transform: true,
             count: 1,
             contents: vec![vec![2]],
-            rules: vec![
-                Rule::new(0, vec![vec![1]]),
-            ],
-        }
+            rules: vec![Rule::new(0, vec![vec![1]])],
+        },
     ];
 
     count_patterns(&mut second_test);
     dedup_patterns(&mut second_test);
 
     assert_eq!(second_test.len(), 2, "{:#?}", second_test);
-    assert_eq!(second_test[1], Pattern {
+    assert_eq!(
+        second_test[1],
+        Pattern {
             id: 3,
             is_transform: false,
             count: 1,

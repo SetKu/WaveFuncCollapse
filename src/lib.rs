@@ -39,39 +39,54 @@ impl Wave {
         }
     }
 
-    // pub fn collapse_all(&mut self, print: bool) -> Result<(), String> {
-    // let mut failures = 0;
-    // let mut iterations = 0;
+    /// Collapses continuously until the wave function either completely collapses or the max number of contradictions (attempts has been reached).
+    ///
+    /// # Arguments
+    /// * callback: An optional function which accepts the number of iterations and failures occured, as well as the current state of the wave function. This can be used for logging or print purposes.
+    ///
+    /// # Notes
+    ///
+    /// * The number of iterations resets after a failed attempt. The number of failures is never reset.
+    /// * The current representation (`Vec<Vec<Vec<usize>>>`) is provided in the callback as its not available while the function is borrowing the `Wave`.
+    /// * No final perfect result is returned from a successful run as to avoid doing extra work in case the caller doesn't need the final representation.
+    pub fn collapse_all<F>(
+        &mut self,
+        max_contradictions: usize,
+        callback: Option<F>,
+    ) -> Result<(), String>
+    where
+        F: Fn(usize, usize, Vec<Vec<Vec<usize>>>),
+    {
+        if self.chunk_fill_size.x == 0 || self.chunk_fill_size.y == 0 {
+            return Err("The superpositions are empty or were not filled properly".to_owned());
+        }
 
-    // let mut max = Vector2::new(0, 0);
+        let mut failures = 0;
+        let mut iterations = 0;
 
-    // for e in &self.elements {
-    // if e.position.x >= max.x && e.position.y >= max.y {
-    // max = e.position.clone();
-    // }
-    // }
+        while !self.completely_collapsed() {
+            self.collapse_once();
 
-    // if max == Vector2::new(0, 0) {
-    // return Ok(());
-    // }
+            if self.contradiction_occurred() {
+                failures += 1;
 
-    // while !self.completely_collapsed() {
-    // self.collapse_once();
+                if failures == max_contradictions {
+                    return Err("The max number of contradictions has been reached".to_owned());
+                }
 
-    // if self.contradiction_occurred() {
-    // failures += 1;
-    // self.fill(max)?;
-    // iterations = 0;
-    // println!("Failure {}", failures);
-    // continue;
-    // }
+                self.fill(self.true_size())?;
+                iterations = 0;
+            } else {
+                iterations += 1;
+            }
 
-    // println!("Iteration {} Attempt {}", iterations + 1, failures + 1);
-    // iterations += 1;
-    // }
+            if let Some(cb) = &callback {
+                cb(iterations, failures, self.current_rep());
+            }
+        }
 
-    // Ok(())
-    // }
+        Ok(())
+    }
 
     fn contradiction_occurred(&self) -> bool {
         self.elements.iter().filter(|e| e.values.is_empty()).count() != 0
@@ -130,9 +145,9 @@ impl Wave {
         }
     }
 
-    pub fn wip_rep(&self) -> Result<Vec<Vec<Vec<usize>>>, String> {
+    pub fn current_rep(&self) -> Vec<Vec<Vec<usize>>> {
         if self.elements.is_empty() {
-            return Ok(vec![]);
+            return vec![];
         }
 
         let mut pairs: Vec<(Vec<usize>, Vector2<usize>)> = vec![];
@@ -163,7 +178,7 @@ impl Wave {
         }
 
         let result = arrayify(pairs, &self.true_size());
-        Ok(result)
+        result
     }
 
     pub fn collapse_once(&mut self) {
@@ -332,17 +347,6 @@ impl Wave {
             .patterns
             .clone()
             .into_iter()
-            // .filter(|p| {
-            // if self.flags.contains(&Flags::NoTransforms) {
-            // if p.is_transform {
-            // false
-            // } else {
-            // true
-            // }
-            // } else {
-            // true
-            // }
-            // })
             .map(|p| Rc::new(p))
             .collect();
 
@@ -565,7 +569,7 @@ impl PartialEq for Pattern {
     }
 }
 
-impl Eq for Pattern { }
+impl Eq for Pattern {}
 
 impl PartialOrd for Pattern {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
