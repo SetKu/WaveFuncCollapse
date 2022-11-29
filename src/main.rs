@@ -7,9 +7,11 @@ use cgmath::Vector2;
 use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
 use std::path::PathBuf;
-use wfc::{helpers::xy_swap, BorderMode, Flags, Wave};
+use wfc::{helpers::xy_swap, helpers::dimensions_of, BorderMode, Flags, Wave};
 
 fn main() -> Result<(), String> {
+    let max_contradictions_default = 20;
+
     let matches = Command::new("Wave Function Collapse")
         .version(crate_version!())
         .arg(Arg::new("width")
@@ -69,8 +71,11 @@ fn main() -> Result<(), String> {
     }
 
     let (sample, source_map) = deconstruct_string(&input, use_whitespace);
+    let dimensions = dimensions_of(&sample);
 
-    debug_assert_eq!(sample.len(), input.lines().count());
+    if dimensions.x == 0 && dimensions.y == 0 {
+        println!("Warning: The sample provided has no items.");
+    }
 
     let chunk_size = if tilesize.is_some() {
         let mut size = Vector2::new(*tilesize.unwrap(), *tilesize.unwrap());
@@ -101,14 +106,24 @@ fn main() -> Result<(), String> {
     wave.analyze(sample, chunk_size, BorderMode::Clamp);
     wave.fill(Vector2::new(width, height))?;
 
-    let result = wave.current_rep();
-    let string = construct_wip_string(result, &source_map);
-    println!("{}", string);
+    let real_contradictions = if let Some(max) = max_contradictions {
+        *max
+    } else {
+        max_contradictions_default
+    };
 
-    wave.collapse_once();
+    wave.collapse_all(
+        real_contradictions,
+        if print {
+            Some(|iterations: usize, failures: usize, current_rep: Vec<Vec<Vec<usize>>>| {
+                let string = construct_wip_string(current_rep, &source_map);
+                println!("Iteration: {}, Attempt: {}\n{}\n", iterations + 1, failures + 1, string);
+            })
+        } else { None },
+    )?;
 
-    let result = wave.current_rep();
-    let string = construct_wip_string(result, &source_map);
+    let result = wave.perfect_rep()?;
+    let string = reconstruct_string(result, &source_map);
     println!("{}", string);
 
     Ok(())
@@ -125,15 +140,15 @@ fn deconstruct_string(
     let mut id_counter = 0usize;
 
     for (row, line) in input.lines().enumerate() {
+        if sample.len() < row + 1 {
+            sample.push(vec![]);
+        }
+
         for (_, ch) in line.chars().enumerate() {
             if !use_whitespace {
                 if ch.is_whitespace() {
                     continue;
                 }
-            }
-
-            if sample.len() < row + 1 {
-                sample.push(vec![]);
             }
 
             if let Some(translation) = source_map.iter().find(|t| t.1 == ch) {
@@ -150,9 +165,21 @@ fn deconstruct_string(
 }
 
 fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, char)>) -> String {
+    let space_for_unfounds = true;
+
     let swapped = xy_swap(input);
     let mut output = "".to_string();
     let mut lines_added = 0;
+
+    let mut max_vals_in_pos = 0;
+
+    for row in &swapped {
+        for col in row {
+            if col.len() > max_vals_in_pos {
+                max_vals_in_pos = col.len();
+            }
+        }
+    }
 
     for (r, row) in swapped.iter().enumerate() {
         if lines_added < r + 1 {
@@ -169,8 +196,12 @@ fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, ch
 
             let mut string = "(".to_string();
 
-            for ch in mapped {
-                string.push_str(&format!("{}", ch));
+            for i in 0..max_vals_in_pos {
+                if let Some(ch) = mapped.get(i) {
+                    string.push_str(&format!("{}", ch));
+                } else if space_for_unfounds {
+                    string.push(' ');
+                }
             }
 
             string.push(')');
@@ -184,10 +215,12 @@ fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, ch
 fn reconstruct_string(input: Vec<Vec<usize>>, source_map: &Vec<(usize, char)>) -> String {
     let swapped = xy_swap(input);
     let mut output = "".to_string();
+    let mut lines = 1;
 
     for (r, row) in swapped.iter().enumerate() {
-        if output.lines().count() < r + 1 {
+        if lines < r + 1 {
             output.push('\n');
+            lines += 1;
         }
 
         for id in row {

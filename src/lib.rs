@@ -172,6 +172,13 @@ impl Wave {
                         new_pair.0.push(value.contents[cx][cy]);
                     }
 
+                    // deduplication is required because when working with the overlapping tiled
+                    // model the patterns are set up such that they can at times have duplicated
+                    // contents, which is a little bit disorienting and doesn't make sense to the
+                    // caller of this function.
+                    new_pair.0.sort();
+                    new_pair.0.dedup();
+
                     pairs.push(new_pair);
                 }
             }
@@ -181,6 +188,9 @@ impl Wave {
         result
     }
 
+    /// # Notes
+    ///
+    /// * The wave doesn't stop propogating until its completely iterated over the entire superposition grid. It does this as, although on the first run it doesn't make much sense, on future runs it will propagate out changes between the sites of different collapses.
     pub fn collapse_once(&mut self) {
         if self.elements.is_empty() {
             return;
@@ -190,6 +200,10 @@ impl Wave {
         let mut greatest_entropy = 0.;
 
         for (i, element) in self.elements.iter().enumerate() {
+            if element.is_collapsed() {
+                continue;
+            }
+
             let ent = element.entropy(self.patterns_total);
 
             if ent == 0. {
