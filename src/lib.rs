@@ -1,6 +1,10 @@
 pub mod helpers;
-use cgmath::Vector2;
+pub mod stringtools;
+pub mod prelude;
+
 pub use helpers::BorderMode;
+
+use cgmath::Vector2;
 use helpers::*;
 use rand::prelude::*;
 use rand::thread_rng;
