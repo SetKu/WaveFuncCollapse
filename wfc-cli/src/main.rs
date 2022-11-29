@@ -1,9 +1,7 @@
 // declare dependencies
-extern crate cgmath;
 extern crate clap;
 extern crate wfc;
 
-use cgmath::Vector2;
 use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
 use std::path::PathBuf;
