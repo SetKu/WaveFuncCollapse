@@ -26,9 +26,9 @@ This isn't a tutorial for the Rust language or Cargo. So please check out their 
 
 ## Discussion
 
-By default, the CLI uses the sea, land, coast example as Robert Heaton describes in his [blog](https://robertheaton.com/2018/12/17/wavefunction-collapse-algorithm/) post on the algorithm. This can be seen in the character map demo above. I think this way of introducing the algorithm makes a lot of sense. It's easy to understand and grasp in a practical way. It's based off the `sample.txt` source file in the `wfc` crate. It's embedded at compile-time into the program to provide this functionality, though the size is beyond negligible.
+By default, the CLI uses the sea, land, coast example as Robert Heaton describes in his [blog](https://robertheaton.com/2018/12/17/wavefunction-collapse-algorithm/) post on the algorithm. This can be seen in the character map demo above. I think this way of introducing the algorithm makes a lot of sense. It's easy to understand and grasp in a practical way. It's based off the `sample.txt` source file in the `wavefc` crate. It's embedded at compile-time into the program to provide this functionality, though the size is beyond negligible.
 
-The CLI and core logic have been separated into two packages in the source: `wfc-cli` and `wfc`. To create your own custom adapters and write your own CLI, I recommend using the `wfc-cli` source as a template and then building off of the `wfc` types from there. During development, I personally found it beneficial to build and run in `--release` mode in Cargo. The build time difference between the two is negligible, and the actual collapse is much quicker in this optimized mode.
+The CLI and core logic have been separated into two packages in the source: `wavefc-cli` and `wavefc`. To create your own custom adapters and write your own CLI, I recommend using the `wavefc-cli` source as a template and then building off of the `wavefc` types from there. During development, I personally found it beneficial to build and run in `--release` mode in Cargo. The build time difference between the two is negligible, and the actual collapse is much quicker in this optimized mode.
 
 The program requires that a width and height be provided to size the output from. Feel free to play around with these values to create differently shaped outputs. Please note that the larger the size of the output, the longer the function generally takes, as the chances for it to contradict itself increase. Theoretically, if the output size specified is lower than or equal to the sample's size, there exists a valid result. The output size specified must be a product of the tile size. Tile sizes are explored in the next paragraph.
 
@@ -38,7 +38,7 @@ Trying a relatively large tile size compared to a tiny sample:
   <img alt="Infinite Collapse Demo" src="https://i.postimg.cc/SR9gwMGr/Infinite.gif" width="85%" height="85%" style="border-radius:12px;"/>
 </div>
 
-In the version 1 and version 2 of `wfc`, only the simple-tiled model was implemented for the algorithm. This severely limited its "creative" capabilities, creating rather dull outputs. In the current version of the algorithm, the overlapping-tiled model is used. This produces much better outputs and also more quickly in certain cases. Though, this model generally takes longer than the simple-tiled model. Luckily, the new overlapping logic is simply a more advanced superset of the original approach. This means that by specifying the tile size to be 1, you are essentially using the simple-tiled model.
+In the version 1 and version 2 of `wavefc`, only the simple-tiled model was implemented for the algorithm. This severely limited its "creative" capabilities, creating rather dull outputs. In the current version of the algorithm, the overlapping-tiled model is used. This produces much better outputs and also more quickly in certain cases. Though, this model generally takes longer than the simple-tiled model. Luckily, the new overlapping logic is simply a more advanced superset of the original approach. This means that by specifying the tile size to be 1, you are essentially using the simple-tiled model.
 
 The way the algorithm chooses which tile (superposition) to collapse next is based on the Shannon Entropy of a particular location. This is calculated using the probabilities of each of the possible values occurence in the original sample. These are all taken together to form the collective entropy for a given superposition.
 
@@ -46,7 +46,7 @@ The way the algorithm chooses which tile (superposition) to collapse next is bas
   <img src="https://latex.codecogs.com/svg.image?\sum_{i=0}^{n}&space;p_i&space;\log_{2}({p_i})&space;" title="https://latex.codecogs.com/svg.image?\sum_{i=0}^{n} p_i \log_{2}({p_i}) " />
 </div>
 
-The `wfc` library is currently single-threaded, given the sequential nature of the algorithm. However, I do recognize that a lot of performance optimizations could be made by sprinkling in some multi-threading. This is a long-term goal for the project, at the moment. I'm eyeing `rayon` pretty frequently for this specific project.
+The `wavefc` library is currently single-threaded, given the sequential nature of the algorithm. However, I do recognize that a lot of performance optimizations could be made by sprinkling in some multi-threading. This is a long-term goal for the project, at the moment. I'm eyeing `rayon` pretty frequently for this specific project.
 
 The CLI has a whole host of flags to tweak the program's settings. There are too many to cover in detail, and doing so would be frivilous regardless. However, by using the `clap` library, the help flag is supported to show a list of all available flags.
 
@@ -54,6 +54,6 @@ The CLI has a whole host of flags to tweak the program's settings. There are too
 
 You can use this project by manually copying its source or including it in a Cargo workspace. For the moment, the package has not been published to [crates.io](https://crates.io).
 
-A good place to start getting familiar with the source is `wfc/src/lib.rs`, which holds the majority of the actual `Wave` code. To include this code in Rust, use the prelude with `use wfc::prelude::*;`.
+A good place to start getting familiar with the source is `wavefc/src/lib.rs`, which holds the majority of the actual `Wave` code. To include this code in Rust, use the prelude with `use wavefc::prelude::*;`.
 
 Copyright © Zachary Morden 2022

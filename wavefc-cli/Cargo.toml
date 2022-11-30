@@ -1,5 +1,5 @@
 [package]
-name = "wfc-cli"
+name = "wavefc-cli"
 authors = ["Zachary Morden"]
 version = "3.0.0"
 edition = "2021"
@@ -14,4 +14,4 @@ categories = ["command-line-interface"]
 
 [dependencies]
 clap = { version = "4.0.18", features = ["cargo"] }
-wfc = { path = "../wfc" }
+wavefc = { version = "3.0" }

@@ -1,12 +1,12 @@
 // declare dependencies
 extern crate clap;
-extern crate wfc;
+extern crate wavefc;
 
 use clap::{arg, crate_version, value_parser, Arg, Command};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use wfc::prelude::*;
+use wavefc::prelude::*;
 
 fn main() -> Result<(), String> {
     let max_contradictions_default = 20;

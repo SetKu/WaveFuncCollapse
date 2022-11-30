@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-  "wfc",
-  "wfc-cli",
+  "wavefc",
+  "wavefc-cli",
 ]
