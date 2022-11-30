@@ -40,6 +40,12 @@ Trying a relatively large tile size compared to a tiny sample:
 
 In the version 1 and version 2 of `wfc`, only the simple-tiled model was implemented for the algorithm. This severely limited its "creative" capabilities, creating rather dull outputs. In the current version of the algorithm, the overlapping-tiled model is used. This produces much better outputs and also more quickly in certain cases. Though, this model generally takes longer than the simple-tiled model. Luckily, the new overlapping logic is simply a more advanced superset of the original approach. This means that by specifying the tile size to be 1, you are essentially using the simple-tiled model.
 
+The way the algorithm chooses which tile (superposition) to collapse next is based on the Shannon Entropy of a particular location. This is calculated using the probabilities of each of the possible values occurence in the original sample. These are all taken together to form the collective entropy for a given superposition.
+
+<div align="center">
+  <img src="https://latex.codecogs.com/svg.image?\sum_{i=0}^{n}&space;p_i&space;\log_{2}({p_i})&space;" title="https://latex.codecogs.com/svg.image?\sum_{i=0}^{n} p_i \log_{2}({p_i}) " />
+</div>
+
 The `wfc` library is currently single-threaded, given the sequential nature of the algorithm. However, I do recognize that a lot of performance optimizations could be made by sprinkling in some multi-threading. This is a long-term goal for the project, at the moment. I'm eyeing `rayon` pretty frequently for this specific project.
 
 The CLI has a whole host of flags to tweak the program's settings. There are too many to cover in detail, and doing so would be frivilous regardless. However, by using the `clap` library, the help flag is supported to show a list of all available flags.
