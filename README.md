@@ -1,6 +1,7 @@
 # Wave Function Collapse
 
 ![Rust](https://img.shields.io/badge/Rust-FA7343?style=for-the-badge&logo=rust&logoColor=white)
+![Crates.io](https://img.shields.io/crates/v/wavefc?style=for-the-badge)
 
 ## Character Map Demo
 
@@ -52,7 +53,7 @@ The CLI has a whole host of flags to tweak the program's settings. There are too
 
 ## Using this Project in your Code
 
-You can use this project by manually copying its source or including it in a Cargo workspace. For the moment, the package has not been published to [crates.io](https://crates.io).
+This project is available in two packages on [crates.io](https://crates.io): `wavefc` and `wavefc-cli`. If you just want to give the program a go, `wavefc-cli` is probably your best bet to install. If you want to use this algorithm in your own code, adding `wavefc` to your `Cargo.toml` should suffice. As an alternative, you can use this project by manually copying its source or including it in a Cargo workspace.
 
 A good place to start getting familiar with the source is `wavefc/src/lib.rs`, which holds the majority of the actual `Wave` code. To include this code in Rust, use the prelude with `use wavefc::prelude::*;`.
 
