@@ -133,8 +133,7 @@ fn main() -> Result<(), String> {
     let c_dur = c_start.elapsed();
 
     let result = wave.perfect_rep()?;
-    let use_colors = if print { pathbuf.is_none() } else { false };
-    let string = reconstruct_string(result, &source_map, use_colors, use_colors);
+    let string = reconstruct_string(result, &source_map, print, print);
     println!("{}", string);
 
     if print {

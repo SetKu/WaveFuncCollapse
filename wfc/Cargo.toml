@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 cgmath = "0.18.0"
-rayon = { version = "1.5.3" }
 rand = { version = "0.8.5", features = ["alloc"] }
 
 [dev-dependencies]

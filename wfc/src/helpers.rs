@@ -180,52 +180,52 @@ impl<T> Adjacency<T> {
 ///
 /// If `allow_slims` is false, the function will panic if the input's size is not a factor of `n_size`.
 // fn chunkify<T>(
-    // input: Vec<Vec<T>>,
-    // chunk_size: Vector2<usize>,
-    // allow_slims: bool,
+// input: Vec<Vec<T>>,
+// chunk_size: Vector2<usize>,
+// allow_slims: bool,
 // ) -> Vec<(Vec<Vec<T>>, Vector2<usize>)>
 // where
-    // T: Clone,
+// T: Clone,
 // {
-    // if !allow_slims {
-        // assert!(input.len() >= chunk_size.x);
-        // assert!(input.len() % chunk_size.x == 0);
-        // assert!(input[0].len() >= chunk_size.y);
-        // assert!(input[0].len() % chunk_size.y == 0);
-    // }
+// if !allow_slims {
+// assert!(input.len() >= chunk_size.x);
+// assert!(input.len() % chunk_size.x == 0);
+// assert!(input[0].len() >= chunk_size.y);
+// assert!(input[0].len() % chunk_size.y == 0);
+// }
 
-    // let mut chunks: Vec<(Vec<(T, Vector2<usize>)>, Vector2<usize>)> = vec![];
+// let mut chunks: Vec<(Vec<(T, Vector2<usize>)>, Vector2<usize>)> = vec![];
 
-    // for (i_x, row) in input.iter().enumerate() {
-        // for (i_y, element) in row.iter().enumerate() {
-            // let c_x = (i_x as f32 / chunk_size.x as f32).floor() as usize;
-            // let c_y = (i_y as f32 / chunk_size.y as f32).floor() as usize;
-            // let chunk = Vector2::new(c_x, c_y);
+// for (i_x, row) in input.iter().enumerate() {
+// for (i_y, element) in row.iter().enumerate() {
+// let c_x = (i_x as f32 / chunk_size.x as f32).floor() as usize;
+// let c_y = (i_y as f32 / chunk_size.y as f32).floor() as usize;
+// let chunk = Vector2::new(c_x, c_y);
 
-            // let r_x = i_x % chunk_size.x;
-            // let r_y = i_y % chunk_size.y;
-            // let rel = Vector2::new(r_x, r_y);
+// let r_x = i_x % chunk_size.x;
+// let r_y = i_y % chunk_size.y;
+// let rel = Vector2::new(r_x, r_y);
 
-            // let content = (element.to_owned(), rel);
+// let content = (element.to_owned(), rel);
 
-            // if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk) {
-                // // i_c naturally increments up and thus rel.y doesn't need to be checked
-                // chunk.0.push(content);
-            // } else {
-                // let mut pattern = vec![];
-                // pattern.push(content);
-                // let new = (pattern, chunk);
-                // chunks.push(new);
-            // }
-        // }
-    // }
+// if let Some(chunk) = chunks.iter_mut().find(|c| c.1 == chunk) {
+// // i_c naturally increments up and thus rel.y doesn't need to be checked
+// chunk.0.push(content);
+// } else {
+// let mut pattern = vec![];
+// pattern.push(content);
+// let new = (pattern, chunk);
+// chunks.push(new);
+// }
+// }
+// }
 
-    // let converted = chunks
-        // .into_iter()
-        // .map(|i| (arrayify(i.0, &chunk_size), i.1))
-        // .collect();
+// let converted = chunks
+// .into_iter()
+// .map(|i| (arrayify(i.0, &chunk_size), i.1))
+// .collect();
 
-    // converted
+// converted
 // }
 
 /// This function finds all possible rectangles of the specified `chunk_size` in the input, and then finds all its adjacencies rectangles (if they exist).

@@ -743,7 +743,6 @@ dependencies = [
  "cgmath",
  "criterion",
  "rand",
- "rayon",
 ]
 
 [[package]]

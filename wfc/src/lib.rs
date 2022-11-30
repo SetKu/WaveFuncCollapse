@@ -1,6 +1,6 @@
 pub mod helpers;
-pub mod stringtools;
 pub mod prelude;
+pub mod stringtools;
 
 pub use helpers::BorderMode;
 

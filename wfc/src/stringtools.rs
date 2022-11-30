@@ -1,4 +1,6 @@
 use crate::helpers::xy_swap;
+use rand::prelude::*;
+use rand::thread_rng;
 
 pub fn deconstruct_string(
     input: &String,
@@ -35,7 +37,10 @@ pub fn deconstruct_string(
     (xy_swap(sample), source_map)
 }
 
-pub fn construct_wip_string(input: Vec<Vec<Vec<usize>>>, source_map: &Vec<(usize, char)>) -> String {
+pub fn construct_wip_string(
+    input: Vec<Vec<Vec<usize>>>,
+    source_map: &Vec<(usize, char)>,
+) -> String {
     let space_for_unfounds = true;
 
     let swapped = xy_swap(input);
@@ -98,6 +103,9 @@ pub fn reconstruct_string(
 
     let mut lines = 1;
 
+    let colors = vec!["31", "32", "33", "34", "35", "36"];
+    let mut color_map: Vec<(char, &str)> = vec![];
+
     for (r, row) in swapped.iter().enumerate() {
         if lines < r + 1 {
             output.push('\n');
@@ -108,16 +116,22 @@ pub fn reconstruct_string(
             let real_val = source_map.iter().find(|s| s.0 == *id).unwrap().1;
 
             if use_color {
-                output.push_str("\x1b[");
-
-                if real_val == 'S' {
-                    output.push_str("34m");
-                } else if real_val == 'C' {
-                    output.push_str("33m");
-                } else if real_val == 'L' {
-                    output.push_str("32m");
+                if let Some(color) = color_map.iter().find(|r| r.0 == real_val) {
+                    output.push_str(&format!("\x1b[{}m", color.1));
                 } else {
-                    output.push_str("35m");
+                    let choice: &str = match real_val {
+                        'S' => "34",
+                        'C' => "33",
+                        'L' => "32",
+                        _ => colors
+                            .iter()
+                            .filter(|c| color_map.iter().find(|r| r.1 == **c).is_none())
+                            .choose(&mut thread_rng())
+                            .map_or("0", |y| *y),
+                    };
+
+                    color_map.push((real_val, choice));
+                    output.push_str(&format!("\x1b[{}m", choice.to_string()));
                 }
             }
 
