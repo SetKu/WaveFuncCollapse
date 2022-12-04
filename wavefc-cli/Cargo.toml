@@ -1,7 +1,7 @@
 [package]
 name = "wavefc-cli"
 authors = ["Zachary Morden"]
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 license = "MIT"
 description = "A home-grown implementation of the Wave Function Collapse algorithm."

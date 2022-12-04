@@ -729,15 +729,6 @@ checksum = "1c38c045535d93ec4f0b4defec448e4291638ee608530863b1e2ba115d4fff7f"
 [[package]]
 name = "wavefc"
 version = "3.0.0"
-dependencies = [
- "cgmath",
- "criterion",
- "rand",
-]
-
-[[package]]
-name = "wavefc"
-version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c49b5732e432623b1d350db8757692e7834133f2ec1a512a9db8a19e956b3351"
 dependencies = [
@@ -746,11 +737,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "wavefc"
+version = "3.1.0"
+dependencies = [
+ "cgmath",
+ "criterion",
+ "rand",
+ "serde",
+]
+
+[[package]]
 name = "wavefc-cli"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "clap 4.0.29",
- "wavefc 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json",
+ "wavefc 3.0.0",
 ]
 
 [[package]]

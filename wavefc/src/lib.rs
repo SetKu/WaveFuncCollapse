@@ -11,14 +11,19 @@ use rand::thread_rng;
 use std::clone::Clone;
 use std::rc::Rc;
 
+#[cfg(feature = "serde")]
+use serde::{de::Visitor, ser::SerializeStruct, Deserialize, Serialize};
+
 #[cfg(test)]
 mod tests;
 
 /// Flags for the `Wave`.
 #[derive(PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Flags {
     NoWeights = 1,
     NoTransforms,
+    NoHistory,
 }
 
 /// Encapsulation for the Wave Function Collapse implementation.
@@ -29,6 +34,8 @@ pub struct Wave {
     elements: Vec<Element>,
     chunk_size: Vector2<usize>,
     chunk_fill_size: Vector2<usize>,
+    history: Vec<Record>,
+    iterations: usize,
 }
 
 impl Wave {
@@ -40,6 +47,8 @@ impl Wave {
             elements: vec![],
             chunk_size: Vector2::new(0, 0),
             chunk_fill_size: Vector2::new(0, 0),
+            history: vec![],
+            iterations: 0,
         }
     }
 
@@ -53,6 +62,7 @@ impl Wave {
     /// * The number of iterations resets after a failed attempt. The number of failures is never reset.
     /// * The current representation (`Vec<Vec<Vec<usize>>>`) is provided in the callback as its not available while the function is borrowing the `Wave`.
     /// * No final perfect result is returned from a successful run as to avoid doing extra work in case the caller doesn't need the final representation.
+    /// * When an error is returned, the final state at which the error occurred is preserved in the wave.
     pub fn collapse_all<F>(
         &mut self,
         max_contradictions: usize,
@@ -66,7 +76,6 @@ impl Wave {
         }
 
         let mut failures = 0;
-        let mut iterations = 0;
 
         while !self.completely_collapsed() {
             self.collapse_once();
@@ -79,13 +88,14 @@ impl Wave {
                 }
 
                 self.fill(self.true_size())?;
-                iterations = 0;
+                self.clear_history();
+                self.iterations = 0;
             } else {
-                iterations += 1;
+                self.iterations += 1;
             }
 
             if let Some(cb) = &callback {
-                cb(iterations, failures, self.current_rep());
+                cb(self.iterations, failures, self.current_rep());
             }
         }
 
@@ -192,9 +202,14 @@ impl Wave {
         result
     }
 
+    /// Causing the wave to perform one collapse. This will also cause consequent propagation.
+    ///
     /// # Notes
     ///
     /// * The wave doesn't stop propogating until its completely iterated over the entire superposition grid. It does this as, although on the first run it doesn't make much sense, on future runs it will propagate out changes between the sites of different collapses.
+    /// * After this function is called, it saves what it did to a private history log.
+    ///     * This can be disabled using the `NoHistory` flag.
+    /// * If the internal superposition grid is empty, this function will do nothing.
     pub fn collapse_once(&mut self) {
         if self.elements.is_empty() {
             return;
@@ -233,6 +248,12 @@ impl Wave {
                 .choose_weighted(&mut rng, |v| v.count)
                 .unwrap()
         };
+
+        if self.flags.contains(&Flags::NoHistory) {
+            let previous_pattern_ids = borrow.values.iter().map(|p| p.id).collect();
+            let new_record = Record::new(borrow.position.clone(), choice.id, previous_pattern_ids, self.iterations);
+            self.history.push(new_record);
+        }
 
         // finish collapse!
         let choice_value = choice.clone();
@@ -560,7 +581,116 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     patterns.dedup();
 }
 
+// History Related Functions and Code
+impl Wave {
+    /// Clears the wave's internal history log.
+    pub fn clear_history(&mut self) {
+        self.history.clear();
+    }
+
+    /// Undo's the last collapse undertaken by the algorithm.
+    ///
+    /// # Parameters:
+    ///
+    /// * `remove_record`: Determines whether the operation being undone should be forgotten in the internal history log or remembered.
+    ///
+    /// # Notes:
+    ///
+    /// * If the internal history log for the `Wave` is empty, this function does nothing.
+    /// * If `remove_record` is set to true, if an error is returned, **DO NOT** attempt another undo.
+    ///     * In this situation, the last undo will have been marked as undone but an error occurred during this process. Undoing again will likely result in an error for a variety of reasons.
+    pub fn undo_collapse(&mut self, remove_record: bool) -> Result<(), String> {
+        // Don't include undone records in the eventuality `remove_record` was marked false.
+        let last_record = self.history.iter_mut().enumerate().filter(|r| !r.1.undone).last();
+
+        if let Some(record_info) = last_record {
+            let index = record_info.0;
+
+            record_info.1.undone = true;
+            let clone = record_info.1.clone();
+            self.reverse_record(clone)?;
+            
+            if remove_record {
+                self.history.remove(index);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Redos the previous undo if one occured. Otherwise, this function does nothing.
+    ///
+    /// # Notes:
+    ///
+    /// * 
+    pub fn redo_collapse(&mut self) -> Result<(), String> {
+        let last_undone = self.history.iter_mut().find(|r| r.undone);
+
+        if let Some(undone_record) = last_undone {
+            undone_record.undone = false;
+            let copy = undone_record.clone();
+            self.execute_record(copy)?;
+        } else if let Some(last_record) = self.history.last_mut() {
+            let copy = last_record.clone();
+            self.execute_record(copy)?;
+        }
+
+        Ok(())
+    }
+
+    /// Undos the previous collapse as described in the record.
+    ///
+    /// # Notes:
+    ///
+    /// * This function has the same quirks and behaviours that `execute_record` does due to their similar nature.
+    /// * This function decrements the internal iterations count.
+    fn reverse_record(&mut self, record: Record) -> Result<(), String> {
+        if record.iteration != self.iterations {
+            return Err("This record's iteration does not match the internal state of the Wave".to_string());
+        }
+
+        let element = self.elements.iter_mut().find(|e| e.position == record.location());
+        if element.is_none() { return Err("Failed to find element at the specified location".to_string()) };
+
+        let patterns: Vec<&Pattern> = self.patterns.iter().filter(|p| record.previous_pattern_ids.contains(&p.id)).collect();
+        if patterns.is_empty() { return Err("Failed to find any patterns for the record id. This is possible, but shouldn't happen with the `Wave` history functioning as intended.".to_string()) }; 
+        let references = patterns.into_iter().map(|p| Rc::new(p.clone())).collect();
+
+        element.unwrap().values = references;
+        self.iterations -= 1;
+
+        Ok(())
+    }
+
+    /// Executes the given record by attempting to perform the predetermined collapse it contains.
+    ///
+    /// This function can fail and return an error if the given record has invalid values that don't match with the state of the wave.
+    ///
+    /// # Notes:
+    ///
+    /// * This function will fail if the record's iteration does not line up with the current iteration.
+    /// * This function has an inefficiency where, when searching for the pattern specified, it has to make a copy of it and create a new `Rc` to that copy.
+    ///     * This could be subverted by searching for a prexisting copy of a `Rc` to that specific pattern in the other elements. However, I'm guessing this would be time intensive. For now the memory trade-off is being prioritized over the processing trade-off.
+    fn execute_record(&mut self, record: Record) -> Result<(), String> {
+        if record.iteration != self.iterations {
+            return Err("This record's iteration does not match the internal state of the Wave".to_string());
+        }
+
+        let element = self.elements.iter_mut().find(|e| e.position == record.location());
+        if element.is_none() { return Err("Failed to find element at the specified location".to_string()) };
+
+        let pattern = self.patterns.iter().find(|p| p.id == record.chosen_pattern_id);
+        if pattern.is_none() { return Err("Failed to find pattern for the record id".to_string()) }; 
+        let reference = Rc::new(pattern.unwrap().clone());
+
+        element.unwrap().values = vec![reference];
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct Pattern {
     id: usize,
     is_transform: bool,
@@ -602,6 +732,7 @@ impl Ord for Pattern {
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct Rule {
     /// direction corresponds to the top, right, bottom, left directions
     /// 0: up
@@ -646,5 +777,95 @@ impl Element {
 
     fn is_collapsed(&self) -> bool {
         self.values.len() == 1
+    }
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+struct Record {
+    element_location: [usize; 2],
+    /// An index in the patterns of the Wave for the selected value
+    chosen_pattern_id: usize,
+    previous_pattern_ids: Vec<usize>,
+    /// The current `Wave` iteration when the record was made.
+    iteration: usize,
+    undone: bool,
+}
+
+impl Record {
+    fn new(location: Vector2<usize>, chosen_pattern_id: usize, previous_pattern_ids: Vec<usize>, iteration: usize) -> Self {
+        Record {
+            element_location: [location.x, location.y],
+            chosen_pattern_id,
+            previous_pattern_ids,
+            iteration,
+            undone: false,
+        }
+    }
+
+    fn location(&self) -> Vector2<usize> {
+        Vector2::new(self.element_location[0], self.element_location[1])
+    }
+}
+
+#[cfg(feature = "serde")]
+mod wave_serialization {
+    use super::*;
+
+    impl Serialize for Wave {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut state = serializer.serialize_struct("Wave", 7)?;
+            state.serialize_field("flags", &self.flags)?;
+            state.serialize_field("patterns", &self.patterns)?;
+            state.serialize_field("patterns_total", &self.patterns_total)?;
+            state.serialize_field("chunk_size", &[self.chunk_size.x, self.chunk_size.y])?;
+            state.serialize_field(
+                "chunk_fill_size",
+                &[self.chunk_fill_size.x, self.chunk_fill_size.y],
+            )?;
+            state.serialize_field("history", &self.history)?;
+            state.serialize_field("iterations", &self.iterations)?;
+            state.end()
+        }
+    }
+
+    struct WaveVisitor;
+
+    impl<'de> Visitor<'de> for WaveVisitor {
+        type Value = Wave;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "expecting wave object")
+        }
+    }
+
+    impl Default for WaveVisitor {
+        fn default() -> Self {
+            Self {}
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Wave {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            deserializer.deserialize_struct(
+                "Wave",
+                &[
+                    "flags",
+                    "patterns",
+                    "patterns_total",
+                    "chunk_size",
+                    "chunk_fill_size",
+                    "history",
+                    "iterations",
+                ],
+                WaveVisitor::default(),
+            )
+        }
     }
 }
