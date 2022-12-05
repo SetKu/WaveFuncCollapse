@@ -18,7 +18,7 @@ use serde::{de::Visitor, ser::SerializeStruct, Deserialize, Serialize};
 mod tests;
 
 /// Flags for the `Wave`.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Flags {
     NoWeights = 1,
@@ -28,6 +28,7 @@ pub enum Flags {
 }
 
 /// Encapsulation for the Wave Function Collapse implementation.
+#[derive(Clone)]
 pub struct Wave {
     pub flags: Vec<Flags>,
     patterns: Vec<Pattern>,
@@ -858,6 +859,7 @@ impl Rule {
     }
 }
 
+#[derive(Clone)]
 struct Element {
     values: Vec<Rc<Pattern>>,
     position: Vector2<usize>,
