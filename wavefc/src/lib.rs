@@ -9,7 +9,7 @@ use helpers::*;
 use rand::prelude::*;
 use rand::thread_rng;
 use std::clone::Clone;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, ser::SerializeStruct, Deserialize, Serialize};
@@ -426,11 +426,11 @@ impl Wave {
 
         self.elements.clear();
 
-        let values_preset: Vec<Rc<Pattern>> = self
+        let values_preset: Vec<Arc<Pattern>> = self
             .patterns
             .clone()
             .into_iter()
-            .map(|p| Rc::new(p))
+            .map(|p| Arc::new(p))
             .collect();
 
         let chunk_fill_size = Vector2 {
@@ -752,7 +752,7 @@ impl Wave {
         if patterns.is_empty() {
             return Err("Failed to find any patterns for the record id. This is possible, but shouldn't happen with the `Wave` history functioning as intended.".to_string());
         };
-        let references = patterns.into_iter().map(|p| Rc::new(p.clone())).collect();
+        let references = patterns.into_iter().map(|p| Arc::new(p.clone())).collect();
 
         element.unwrap().values = references;
         self.iterations -= 1;
@@ -767,8 +767,8 @@ impl Wave {
     /// # Notes:
     ///
     /// * This function will fail if the record's iteration does not line up with the current iteration.
-    /// * This function has an inefficiency where, when searching for the pattern specified, it has to make a copy of it and create a new `Rc` to that copy.
-    ///     * This could be subverted by searching for a prexisting copy of a `Rc` to that specific pattern in the other elements. However, I'm guessing this would be time intensive. For now the memory trade-off is being prioritized over the processing trade-off.
+    /// * This function has an inefficiency where, when searching for the pattern specified, it has to make a copy of it and create a new `Arc` to that copy.
+    ///     * This could be subverted by searching for a prexisting copy of a `Arc` to that specific pattern in the other elements. However, I'm guessing this would be time intensive. For now the memory trade-off is being prioritized over the processing trade-off.
     fn execute_record(&mut self, record: Record) -> Result<(), String> {
         if record.iteration != self.iterations {
             return Err(
@@ -791,7 +791,7 @@ impl Wave {
         if pattern.is_none() {
             return Err("Failed to find pattern for the record id".to_string());
         };
-        let reference = Rc::new(pattern.unwrap().clone());
+        let reference = Arc::new(pattern.unwrap().clone());
 
         element.unwrap().values = vec![reference];
 
@@ -861,12 +861,12 @@ impl Rule {
 
 #[derive(Clone)]
 struct Element {
-    values: Vec<Rc<Pattern>>,
+    values: Vec<Arc<Pattern>>,
     position: Vector2<usize>,
 }
 
 impl Element {
-    fn new(values: Vec<Rc<Pattern>>, position: Vector2<usize>) -> Self {
+    fn new(values: Vec<Arc<Pattern>>, position: Vector2<usize>) -> Self {
         Self { values, position }
     }
 
