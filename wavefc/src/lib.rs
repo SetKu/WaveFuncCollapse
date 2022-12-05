@@ -36,6 +36,7 @@ pub struct Wave {
     chunk_fill_size: Vector2<usize>,
     history: Vec<Record>,
     iterations: usize,
+    debug: bool,
 }
 
 impl Wave {
@@ -49,7 +50,13 @@ impl Wave {
             chunk_fill_size: Vector2::new(0, 0),
             history: vec![],
             iterations: 0,
+            debug: false,
         }
+    }
+
+    /// Sets the debug mode for the wave. This will print some extra output helpful for debugging.
+    pub fn set_debug(&mut self) {
+        self.debug = true;
     }
 
     /// Collapses continuously until the wave function either completely collapses or the max number of contradictions (attempts has been reached).
@@ -239,6 +246,11 @@ impl Wave {
 
         let mut rng = thread_rng();
         let selected_element = selected_elements.choose(&mut rng).unwrap();
+
+        if self.debug {
+            println!("Chosen element to collapse.");
+        }
+
         let borrow = &mut self.elements[*selected_element];
         let choice = if self.flags.contains(&Flags::NoWeights) {
             borrow.values.choose(&mut rng).unwrap()
@@ -248,10 +260,23 @@ impl Wave {
                 .choose_weighted(&mut rng, |v| v.count)
                 .unwrap()
         };
+        
+        if self.debug {
+            println!("Chosen element to collapse too.");
+        }
 
         if self.flags.contains(&Flags::NoHistory) {
+            if self.debug {
+                println!("Creating history record.");
+            }
+
             let previous_pattern_ids = borrow.values.iter().map(|p| p.id).collect();
-            let new_record = Record::new(borrow.position.clone(), choice.id, previous_pattern_ids, self.iterations);
+            let new_record = Record::new(
+                borrow.position.clone(),
+                choice.id,
+                previous_pattern_ids,
+                self.iterations,
+            );
             self.history.push(new_record);
         }
 
@@ -269,6 +294,10 @@ impl Wave {
         let center = &self.elements[center_element];
         let center_pos = center.position.clone();
         std::mem::drop(center);
+
+        if self.debug {
+            println!("Propagating from {:?}", center_pos);
+        }
 
         let mut current_locs = noneg_neighbours(&center_pos);
 
@@ -293,11 +322,20 @@ impl Wave {
 
             if indexes.is_empty() {
                 // propagation finished!
+                
+                if self.debug {
+                    println!("Finished propagating.");
+                }
+
                 return;
             }
 
             let mut new_references = vec![];
             let mut new_locs = vec![];
+
+            if self.debug {
+                println!("Propagating output to {:?}", current_locs);
+            }
 
             // *** Value Pruning ***
             for i in indexes {
@@ -372,6 +410,10 @@ impl Wave {
     }
 
     pub fn fill(&mut self, size: Vector2<usize>) -> Result<(), String> {
+        if self.debug {
+            println!("Filling superpositions with the following size: {:?}", size);
+        }
+
         if size.x % self.chunk_size.x != 0 {
             return Err("The output width must be a factor of the chunk size".to_owned());
         }
@@ -601,7 +643,12 @@ impl Wave {
     ///     * In this situation, the last undo will have been marked as undone but an error occurred during this process. Undoing again will likely result in an error for a variety of reasons.
     pub fn undo_collapse(&mut self, remove_record: bool) -> Result<(), String> {
         // Don't include undone records in the eventuality `remove_record` was marked false.
-        let last_record = self.history.iter_mut().enumerate().filter(|r| !r.1.undone).last();
+        let last_record = self
+            .history
+            .iter_mut()
+            .enumerate()
+            .filter(|r| !r.1.undone)
+            .last();
 
         if let Some(record_info) = last_record {
             let index = record_info.0;
@@ -609,7 +656,7 @@ impl Wave {
             record_info.1.undone = true;
             let clone = record_info.1.clone();
             self.reverse_record(clone)?;
-            
+
             if remove_record {
                 self.history.remove(index);
             }
@@ -622,7 +669,7 @@ impl Wave {
     ///
     /// # Notes:
     ///
-    /// * 
+    /// *
     pub fn redo_collapse(&mut self) -> Result<(), String> {
         let last_undone = self.history.iter_mut().find(|r| r.undone);
 
@@ -646,14 +693,27 @@ impl Wave {
     /// * This function decrements the internal iterations count.
     fn reverse_record(&mut self, record: Record) -> Result<(), String> {
         if record.iteration != self.iterations {
-            return Err("This record's iteration does not match the internal state of the Wave".to_string());
+            return Err(
+                "This record's iteration does not match the internal state of the Wave".to_string(),
+            );
         }
 
-        let element = self.elements.iter_mut().find(|e| e.position == record.location());
-        if element.is_none() { return Err("Failed to find element at the specified location".to_string()) };
+        let element = self
+            .elements
+            .iter_mut()
+            .find(|e| e.position == record.location());
+        if element.is_none() {
+            return Err("Failed to find element at the specified location".to_string());
+        };
 
-        let patterns: Vec<&Pattern> = self.patterns.iter().filter(|p| record.previous_pattern_ids.contains(&p.id)).collect();
-        if patterns.is_empty() { return Err("Failed to find any patterns for the record id. This is possible, but shouldn't happen with the `Wave` history functioning as intended.".to_string()) }; 
+        let patterns: Vec<&Pattern> = self
+            .patterns
+            .iter()
+            .filter(|p| record.previous_pattern_ids.contains(&p.id))
+            .collect();
+        if patterns.is_empty() {
+            return Err("Failed to find any patterns for the record id. This is possible, but shouldn't happen with the `Wave` history functioning as intended.".to_string());
+        };
         let references = patterns.into_iter().map(|p| Rc::new(p.clone())).collect();
 
         element.unwrap().values = references;
@@ -673,14 +733,26 @@ impl Wave {
     ///     * This could be subverted by searching for a prexisting copy of a `Rc` to that specific pattern in the other elements. However, I'm guessing this would be time intensive. For now the memory trade-off is being prioritized over the processing trade-off.
     fn execute_record(&mut self, record: Record) -> Result<(), String> {
         if record.iteration != self.iterations {
-            return Err("This record's iteration does not match the internal state of the Wave".to_string());
+            return Err(
+                "This record's iteration does not match the internal state of the Wave".to_string(),
+            );
         }
 
-        let element = self.elements.iter_mut().find(|e| e.position == record.location());
-        if element.is_none() { return Err("Failed to find element at the specified location".to_string()) };
+        let element = self
+            .elements
+            .iter_mut()
+            .find(|e| e.position == record.location());
+        if element.is_none() {
+            return Err("Failed to find element at the specified location".to_string());
+        };
 
-        let pattern = self.patterns.iter().find(|p| p.id == record.chosen_pattern_id);
-        if pattern.is_none() { return Err("Failed to find pattern for the record id".to_string()) }; 
+        let pattern = self
+            .patterns
+            .iter()
+            .find(|p| p.id == record.chosen_pattern_id);
+        if pattern.is_none() {
+            return Err("Failed to find pattern for the record id".to_string());
+        };
         let reference = Rc::new(pattern.unwrap().clone());
 
         element.unwrap().values = vec![reference];
@@ -793,7 +865,12 @@ struct Record {
 }
 
 impl Record {
-    fn new(location: Vector2<usize>, chosen_pattern_id: usize, previous_pattern_ids: Vec<usize>, iteration: usize) -> Self {
+    fn new(
+        location: Vector2<usize>,
+        chosen_pattern_id: usize,
+        previous_pattern_ids: Vec<usize>,
+        iteration: usize,
+    ) -> Self {
         Record {
             element_location: [location.x, location.y],
             chosen_pattern_id,
