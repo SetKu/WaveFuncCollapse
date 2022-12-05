@@ -44,7 +44,7 @@ pub struct Wave {
 impl Wave {
     pub fn new() -> Self {
         Wave {
-            flags: vec![Flags::PruneDeadweight],
+            flags: vec![],
             patterns: vec![],
             patterns_total: 0,
             elements: vec![],
@@ -246,6 +246,8 @@ impl Wave {
             }
         }
 
+        debug_assert!(!selected_elements.is_empty());
+
         let mut rng = thread_rng();
         let selected_element = selected_elements.choose(&mut rng).unwrap();
 
@@ -254,6 +256,9 @@ impl Wave {
         }
 
         let borrow = &mut self.elements[*selected_element];
+
+        debug_assert!(!borrow.values.is_empty());
+
         let choice = if self.flags.contains(&Flags::NoWeights) {
             borrow.values.choose(&mut rng).unwrap()
         } else {
