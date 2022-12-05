@@ -24,6 +24,7 @@ pub enum Flags {
     NoWeights = 1,
     NoTransforms,
     NoHistory,
+    PruneDeadweight,
 }
 
 /// Encapsulation for the Wave Function Collapse implementation.
@@ -42,7 +43,7 @@ pub struct Wave {
 impl Wave {
     pub fn new() -> Self {
         Wave {
-            flags: vec![],
+            flags: vec![Flags::PruneDeadweight],
             patterns: vec![],
             patterns_total: 0,
             elements: vec![],
@@ -562,6 +563,42 @@ impl Wave {
         self.patterns = patterns;
         self.patterns_total = initial_count;
         self.chunk_size = chunk_size;
+
+        if self.flags.contains(&Flags::PruneDeadweight) {
+            self.prune_lone_patterns();
+        }
+    }
+
+    fn prune_lone_patterns(&mut self) {
+        if self.debug {
+            println!("Pruning lone patterns.");
+        }
+
+        let mut indexes_to_remove = vec![];
+
+        for (i, pattern) in self.patterns.iter().enumerate() {
+            if pattern.rules.len() < 5 {
+                indexes_to_remove.push(i);
+                continue;
+            }
+
+            let mut found_directions = [false, false, false, false];
+
+            for rule in &pattern.rules {
+                found_directions[rule.direction as usize] = true;
+
+                if found_directions.iter().all(|b| *b) {
+                    break;
+                }
+            }
+        }
+
+        let mut removed = 0usize;
+
+        for i in indexes_to_remove {
+            self.patterns.remove(i - removed);
+            removed += 1;
+        }
     }
 }
 
