@@ -1,24 +1,20 @@
-use clap::{arg, value_parser, Arg, Command, ArgMatches};
-use wavefc::prelude::*;
+use super::DEFAULT_MAX_CONTRADICTIONS;
+use crate::shared::SharedArgs;
+use clap::ArgMatches;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
+use wavefc::prelude::*;
 
-pub fn string_mode(matches: &ArgMatches) -> Result<(), String> {
-    let max_contradictions_default = 20;
-
-    let width = *matches.get_one::<usize>("width").unwrap();
-    let height = *matches.get_one::<usize>("height").unwrap();
-    let tilesize = matches.get_one::<usize>("tilesize");
-    let tilewidth = matches.get_one::<usize>("tilewidth");
-    let tileheight = matches.get_one::<usize>("tileheight");
+pub fn handler(matches: &ArgMatches) -> Result<(), String> {
     let pathbuf = matches.get_one::<PathBuf>("sample");
     let print = !matches.get_flag("noprint");
-    let use_weights = !matches.get_flag("noweights");
-    let use_transforms = !matches.get_flag("notransforms");
-    let max_contradictions = matches.get_one::<usize>("attempts");
     let use_whitespace = matches.get_flag("whitespace");
     let disablecommas = matches.get_flag("disablecom");
+
+    let shared_args = SharedArgs::from(matches);
+
+    let preparation_start = Instant::now();
 
     let input: String = if let Some(buf) = pathbuf {
         let content =
@@ -44,20 +40,26 @@ pub fn string_mode(matches: &ArgMatches) -> Result<(), String> {
     }
 
     let (sample, source_map) = deconstruct_string(&input, use_whitespace);
+
+    let preparation_duration = preparation_start.elapsed();
+
     let dimensions = dimensions_of(&sample);
 
     if dimensions.x == 0 && dimensions.y == 0 {
         println!("Warning: The sample provided has no items.");
     }
 
-    let chunk_size = if tilesize.is_some() {
-        let mut size = Vector2::new(*tilesize.unwrap(), *tilesize.unwrap());
+    let chunk_size = if shared_args.tilesize.is_some() {
+        let mut size = Vector2::new(
+            *shared_args.tilesize.unwrap(),
+            *shared_args.tilesize.unwrap(),
+        );
 
-        if let Some(width) = tilewidth {
+        if let Some(width) = shared_args.tilewidth {
             size.x = *width;
         }
 
-        if let Some(height) = tileheight {
+        if let Some(height) = shared_args.tileheight {
             size.y = *height;
         }
 
@@ -68,23 +70,23 @@ pub fn string_mode(matches: &ArgMatches) -> Result<(), String> {
 
     let mut wave = Wave::new();
 
-    if !use_transforms {
+    if !shared_args.use_transforms {
         wave.flags.push(Flags::NoTransforms);
     }
 
-    if !use_weights {
+    if !shared_args.use_weights {
         wave.flags.push(Flags::NoWeights);
     }
 
     let a_start = Instant::now();
     wave.analyze(sample, chunk_size, BorderMode::Clamp);
     let a_dur = a_start.elapsed();
-    wave.fill(Vector2::new(width, height))?;
+    wave.fill(Vector2::new(shared_args.width, shared_args.height))?;
 
-    let real_contradictions = if let Some(max) = max_contradictions {
+    let real_contradictions = if let Some(max) = shared_args.max_contradictions {
         *max
     } else {
-        max_contradictions_default
+        DEFAULT_MAX_CONTRADICTIONS
     };
 
     let midway_print = Some(
@@ -108,7 +110,10 @@ pub fn string_mode(matches: &ArgMatches) -> Result<(), String> {
     println!("{}", string);
 
     if print {
-        println!("\nAnalysis Time: {:?}", a_dur);
+        println!(
+            "\nAnalysis and Prep. Time: {:?}",
+            preparation_duration + a_dur
+        );
         println!("Collapse Time: {:?}", c_dur);
     }
 

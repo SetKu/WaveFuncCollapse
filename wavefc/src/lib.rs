@@ -80,6 +80,10 @@ impl Wave {
     where
         F: Fn(usize, usize, Vec<Vec<Vec<usize>>>),
     {
+        if self.patterns.is_empty() {
+            return Err("The number of rules identified was zero. The input was flawed or the wave was configured incorrectly.".to_owned());
+        }
+
         if self.chunk_fill_size.x == 0 || self.chunk_fill_size.y == 0 {
             return Err("The superpositions are empty or were not filled properly".to_owned());
         }
@@ -119,6 +123,9 @@ impl Wave {
         self.elements.iter().all(|e| e.is_collapsed())
     }
 
+    /// Returns the perfect representation of the current internal state of the wave.
+    ///
+    /// This function will throw an error if the internal wave isn't completely collapsed.
     pub fn perfect_rep(&self) -> Result<Vec<Vec<usize>>, String> {
         if self.elements.is_empty() {
             return Err("There are no superpositions to create a representation from".to_owned());
