@@ -13,7 +13,7 @@
 
 A home-grown implementation of the [Wave Function Collapse algorithm](https://github.com/mxgmn/WaveFunctionCollapse) written in Rust.
 
-At its core, this function is designed to take in a sample input, of any kind, and create a new output based on that. The `Wave` engine behind the algorithm has been designed to operate on bits and bitsets. This enables it to run against any two-dimensional, grid-based input: Character maps, *images*, video-game levels, sudoku puzzles, etc. The only requirement is that an adapter be written to support the given format. Currently, the program has only been written to support a character map text input. Though, an adapter for images is currently underway.
+At its core, this function is designed to take in a sample input, of any kind, and create a new output based on that. The `Wave` engine behind the algorithm has been designed to operate on bits and bitsets. This enables it to run against any two-dimensional, grid-based input: Character maps, *images*, video-game levels, sudoku puzzles, etc. The only requirement is that an adapter be written to support the given format. Currently, the program has only been written to support a character map text input and image input.
 
 This project is subject to the MIT license as described in the `license.txt` file.
 
