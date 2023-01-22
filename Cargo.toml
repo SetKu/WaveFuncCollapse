@@ -3,4 +3,5 @@
 members = [
   "wavefc",
   "wavefc-cli",
+  "wavefc-app",
 ]
