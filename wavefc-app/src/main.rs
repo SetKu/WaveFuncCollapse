@@ -24,25 +24,27 @@ fn main() {
 }
 
 struct WFCApp {
-    image_source_path: Option<PathBuf>,
+    image_path: Option<PathBuf>,
     image_retainer: Arc<Mutex<Option<RetainedImage>>>,
 }
 
 impl Default for WFCApp {
     fn default() -> Self {
         Self {
-            image_source_path: None,
+            image_path: None,
             image_retainer: Arc::new(Mutex::new(None)),
         }
     }
 }
 
 impl WFCApp {
-    fn background_update_retainer<'a>(&'static self, path: PathBuf) {
+    fn background_update_retainer(&self, path: PathBuf) {
+        let arc_copy = self.image_retainer.clone();
+
         thread::spawn(move || {
             let retainer = updated_image_retainer(path);
             
-            if let Ok(mut reference) = self.image_retainer.lock() {
+            if let Ok(mut reference) = arc_copy.lock() {
                 *reference = retainer;
             }
         });
@@ -63,7 +65,7 @@ impl eframe::App for WFCApp {
 
             if ui.button("Import Source Image").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    self.image_source_path = Some(path.clone());
+                    self.image_path = Some(path.clone());
                     self.background_update_retainer(path);
                 }
             }
@@ -72,20 +74,20 @@ impl eframe::App for WFCApp {
 
             if !ctx.input().raw.dropped_files.is_empty() {
                 let first = ctx.input().raw.dropped_files.first().unwrap().clone();
-                self.image_source_path = first.path;
-
-                // thread::spawn(|| {
-                //     let retainer = updated_image_retainer(path);
-                // });
+                self.image_path = first.path.clone();
+                
+                if let Some(path) = first.path {
+                    self.background_update_retainer(path);
+                }
             }
 
-            if let Some(path) = &self.image_source_path {
+            if let Some(path) = &self.image_path {
                 ui.add_space(5.);
                 ui.label(format!("Selected Image Source: {}", path.display()));
 
                 if let Ok(ret_lock) = self.image_retainer.try_lock() {
                     if let Some(ret) = ret_lock.as_ref() {
-                        ret.show_size(ui, vec2(100., 100.));
+                        ret.show_max_size(ui, vec2(400., 400.));
                     }
                 }
             }
