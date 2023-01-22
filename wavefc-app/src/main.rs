@@ -59,39 +59,54 @@ impl eframe::App for WFCApp {
             // ctx.set_pixels_per_point(2.);
 
             ui.visuals_mut().override_text_color = Some(Color32::WHITE);
-            ui.heading(egui::RichText::new("Wave Function Collapse"));
-            ui.label("By SetKu");
-            ui.add_space(10.);
 
-            if ui.button("Import Source Image").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    self.image_path = Some(path.clone());
-                    self.background_update_retainer(path);
-                }
-            }
+            let width = ui.available_width();
 
-            ui.label("You can also drag and drop the image into the window.");
+            ui.horizontal_top(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_max_width(width / 2.);
+                    
+                    ui.heading(egui::RichText::new("Wave Function Collapse"));
+                    ui.label("By SetKu");
+                    ui.add_space(10.);
 
-            if !ctx.input().raw.dropped_files.is_empty() {
-                let first = ctx.input().raw.dropped_files.first().unwrap().clone();
-                self.image_path = first.path.clone();
-                
-                if let Some(path) = first.path {
-                    self.background_update_retainer(path);
-                }
-            }
-
-            if let Some(path) = &self.image_path {
-                ui.add_space(5.);
-                ui.label(format!("Selected Image Source: {}", path.display()));
-
-                if let Ok(ret_lock) = self.image_retainer.try_lock() {
-                    if let Some(ret) = ret_lock.as_ref() {
-                        ret.show_max_size(ui, vec2(400., 400.));
+                    if ui.button("Import Source Image").clicked() {
+                        if let Some(path) = rfd::FileDialog::new().pick_file() {
+                            self.image_path = Some(path.clone());
+                            self.background_update_retainer(path);
+                        }
                     }
-                }
-            }
+        
+                    ui.label("You can also drag and drop the image into the window.");
+                    ui.add_space(10.);
+
+                    if let Some(path) = &self.image_path {
+                        ui.label(format!("Selected Image Source: {}", path.display()));
+        
+                        if let Ok(ret_lock) = self.image_retainer.try_lock() {
+                            if let Some(ret) = ret_lock.as_ref() {
+                                ret.show_max_size(ui, vec2(300., 300.));
+                            }
+                        }
+                    }
+                });
+
+                ui.separator();
+
+                ui.vertical(|ui| {
+                    
+                });
+            });
         });
+
+        if !ctx.input().raw.dropped_files.is_empty() {
+            let first = ctx.input().raw.dropped_files.first().unwrap().clone();
+            self.image_path = first.path.clone();
+            
+            if let Some(path) = first.path {
+                self.background_update_retainer(path);
+            }
+        }
     }
 }
 
