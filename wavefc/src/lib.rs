@@ -274,7 +274,7 @@ impl Wave {
                 .choose_weighted(&mut rng, |v| v.count)
                 .unwrap()
         };
-        
+
         if self.debug {
             println!("Chosen element to collapse too.");
         }
@@ -336,7 +336,7 @@ impl Wave {
 
             if indexes.is_empty() {
                 // propagation finished!
-                
+
                 if self.debug {
                     println!("Finished propagating.");
                 }

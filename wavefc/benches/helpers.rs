@@ -35,9 +35,5 @@ fn roll_bench(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    overlap_bench,
-    roll_bench,
-);
+criterion_group!(benches, overlap_bench, roll_bench,);
 criterion_main!(benches);
