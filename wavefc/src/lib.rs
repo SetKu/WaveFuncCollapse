@@ -733,6 +733,11 @@ impl Rule {
     }
 }
 
+// An element represents a chunk within the wave,
+// not necessarily an individual element. Instead,
+// the element consists of individual patterns 
+// which can be a single pixel or a rectangular 'pattern'
+// of pixels.
 #[derive(Clone)]
 struct Element {
     values: Vec<Arc<Pattern>>,
