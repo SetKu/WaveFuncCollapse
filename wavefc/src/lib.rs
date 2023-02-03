@@ -766,6 +766,9 @@ impl Element {
 }
 
 // History Related Functions and Code
+// 
+// PLEASE NOTE: NONE OF THE HISTORY TRACKING CODE HAS BEEN
+// TESTED. IT IS PURELY SCAFFOLDING AND AN IDEA.
 impl Wave {
     /// Clears the wave's internal history log.
     pub fn clear_history(&mut self) {
