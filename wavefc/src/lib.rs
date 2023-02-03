@@ -492,7 +492,7 @@ impl Wave {
             patterns.push(pattern);
         }
 
-        count_patterns(&mut patterns);
+        update_pattern_counts(&mut patterns);
         dedup_patterns(&mut patterns);
 
         if !self.flags.contains(&Flags::NoTransforms) {
@@ -615,25 +615,21 @@ impl Wave {
     }
 }
 
+/// Incremenets the count metadata for each pattern provided if it is found to occur more than
+/// once.
+///
 /// If counting, always ensure that you count up your patterns before deduplicating them.
 ///
 /// This function will do nothing if the patterns are deduplicated.
-fn count_patterns(patterns: &mut Vec<Pattern>) {
-    let copy = patterns.to_owned();
+fn update_pattern_counts(patterns: &mut Vec<Pattern>) {
+    // Reason for filter:
+    // Counting doesn't deal with transforms,
+    // as they aren't part of the original
+    // patterns
+    let copy = patterns.to_owned().into_iter().filter(|p| !p.is_transform).collect::<Vec<_>>();
 
-    for pattern in patterns.iter_mut() {
-        // counting doesn't deal with transforms,
-        // as they aren't part of the original
-        // patterns
-        if pattern.is_transform {
-            continue;
-        }
-
+    for pattern in patterns.iter_mut().filter(|p| !p.is_transform) {
         for patcopy in &copy {
-            if patcopy.is_transform {
-                continue;
-            }
-
             if pattern.contents == patcopy.contents {
                 if pattern.id != patcopy.id {
                     pattern.count += 1;
