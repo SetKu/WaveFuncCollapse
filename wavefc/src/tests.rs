@@ -40,7 +40,7 @@ fn dedup_and_count_patterns_works() {
         },
     ];
 
-    count_patterns(&mut patterns);
+    update_pattern_counts(&mut patterns);
     dedup_patterns(&mut patterns);
 
     assert_eq!(patterns.len(), 2);
@@ -112,7 +112,7 @@ fn dedup_and_count_patterns_works() {
         },
     ];
 
-    count_patterns(&mut second_test);
+    update_pattern_counts(&mut second_test);
     dedup_patterns(&mut second_test);
 
     assert_eq!(second_test.len(), 2, "{:#?}", second_test);

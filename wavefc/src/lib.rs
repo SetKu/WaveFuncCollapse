@@ -625,9 +625,9 @@ fn update_pattern_counts(patterns: &mut Vec<Pattern>) {
     // Reason for filter:
     // Counting doesn't deal with transforms,
     // as they aren't part of the original
-    // patterns
+    // patterns.
     let copy = patterns.to_owned().into_iter().filter(|p| !p.is_transform).collect::<Vec<_>>();
-
+    
     for pattern in patterns.iter_mut().filter(|p| !p.is_transform) {
         for patcopy in &copy {
             if pattern.contents == patcopy.contents {
@@ -642,6 +642,10 @@ fn update_pattern_counts(patterns: &mut Vec<Pattern>) {
 fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     let copy = patterns.to_owned();
 
+    // Ensure all identical patterns have their rules cross-checked and copied.
+    // This ensures all identical patterns (having the same contents) have their rules samified.
+    // Why did we do this? It's an easy way of deduplicating everything and making the borrow
+    // checker happy by just calling dedup methods shortly.
     for pattern in patterns.iter_mut() {
         for patcopy in &copy {
             if pattern.contents == patcopy.contents {
@@ -658,9 +662,12 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
         }
     }
 
+    // Early drop the copy.
     std::mem::drop(copy);
 
     for pattern in patterns.iter_mut() {
+        // Ensure all the rules we just made were identical across patterns are correctly sorted so
+        // deduplication of all the patterns is followed shortly.
         pattern.rules.sort();
         pattern.rules.dedup();
     }
