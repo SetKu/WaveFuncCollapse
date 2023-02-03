@@ -673,6 +673,98 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     patterns.dedup();
 }
 
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+struct Pattern {
+    id: usize,
+    is_transform: bool,
+    count: usize,
+    contents: Vec<Vec<usize>>,
+    rules: Vec<Rule>,
+}
+
+impl Pattern {
+    fn new(id: usize, contents: Vec<Vec<usize>>) -> Self {
+        Pattern {
+            id,
+            is_transform: false,
+            count: 1,
+            contents,
+            rules: vec![],
+        }
+    }
+}
+
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.contents == other.contents && self.rules == other.rules && self.count == other.count
+    }
+}
+
+impl Eq for Pattern {}
+
+impl PartialOrd for Pattern {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.contents.cmp(&other.contents))
+    }
+}
+
+impl Ord for Pattern {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.contents.cmp(&other.contents)
+    }
+}
+
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+struct Rule {
+    /// direction corresponds to the top, right, bottom, left directions
+    /// 0: up
+    /// 1: right
+    /// 2: down
+    direction: u8,
+    /// The valid neighbour for the originating pattern of this rule.
+    content: Vec<Vec<usize>>,
+}
+
+impl Rule {
+    fn new(direction: u8, content: Vec<Vec<usize>>) -> Self {
+        Self { direction, content }
+    }
+}
+
+#[derive(Clone)]
+struct Element {
+    values: Vec<Arc<Pattern>>,
+    position: Vector2<usize>,
+}
+
+impl Element {
+    fn new(values: Vec<Arc<Pattern>>, position: Vector2<usize>) -> Self {
+        Self { values, position }
+    }
+
+    fn entropy(&self, patterns_total: usize) -> f32 {
+        if self.values.is_empty() {
+            return 0.;
+        }
+
+        let mut total = 0f32;
+
+        for pattern in self.values.iter() {
+            let prob = pattern.count as f32 / patterns_total as f32;
+            let entropy = prob * (1.0 / prob).log2();
+            total += entropy;
+        }
+
+        total
+    }
+
+    fn is_collapsed(&self) -> bool {
+        self.values.len() == 1
+    }
+}
+
 // History Related Functions and Code
 impl Wave {
     /// Clears the wave's internal history log.
@@ -808,98 +900,6 @@ impl Wave {
         element.unwrap().values = vec![reference];
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-struct Pattern {
-    id: usize,
-    is_transform: bool,
-    count: usize,
-    contents: Vec<Vec<usize>>,
-    rules: Vec<Rule>,
-}
-
-impl Pattern {
-    fn new(id: usize, contents: Vec<Vec<usize>>) -> Self {
-        Pattern {
-            id,
-            is_transform: false,
-            count: 1,
-            contents,
-            rules: vec![],
-        }
-    }
-}
-
-impl PartialEq for Pattern {
-    fn eq(&self, other: &Self) -> bool {
-        self.contents == other.contents && self.rules == other.rules && self.count == other.count
-    }
-}
-
-impl Eq for Pattern {}
-
-impl PartialOrd for Pattern {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.contents.cmp(&other.contents))
-    }
-}
-
-impl Ord for Pattern {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.contents.cmp(&other.contents)
-    }
-}
-
-#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-struct Rule {
-    /// direction corresponds to the top, right, bottom, left directions
-    /// 0: up
-    /// 1: right
-    /// 2: down
-    direction: u8,
-    /// The valid neighbour for the originating pattern of this rule.
-    content: Vec<Vec<usize>>,
-}
-
-impl Rule {
-    fn new(direction: u8, content: Vec<Vec<usize>>) -> Self {
-        Self { direction, content }
-    }
-}
-
-#[derive(Clone)]
-struct Element {
-    values: Vec<Arc<Pattern>>,
-    position: Vector2<usize>,
-}
-
-impl Element {
-    fn new(values: Vec<Arc<Pattern>>, position: Vector2<usize>) -> Self {
-        Self { values, position }
-    }
-
-    fn entropy(&self, patterns_total: usize) -> f32 {
-        if self.values.is_empty() {
-            return 0.;
-        }
-
-        let mut total = 0f32;
-
-        for pattern in self.values.iter() {
-            let prob = pattern.count as f32 / patterns_total as f32;
-            let entropy = prob * (1.0 / prob).log2();
-            total += entropy;
-        }
-
-        total
-    }
-
-    fn is_collapsed(&self) -> bool {
-        self.values.len() == 1
     }
 }
 
