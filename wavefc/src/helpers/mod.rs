@@ -416,6 +416,7 @@ where
 // input
 // }
 
+/// Note: Will panic if number of columns is zero as it uses unsafe indexing.
 pub fn xy_swap<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>>
 where
     T: Clone,
