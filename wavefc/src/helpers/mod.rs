@@ -316,44 +316,6 @@ where
                         scrap_chunk = true;
                         break;
                     }
-
-                    // if border_mode == BorderMode::Wrap {
-                    // let mut content: Vec<(T, Vector2<usize>)> = vec![];
-
-                    // for iy in 0..chunk_size.y {
-                    // for ix in 0..chunk_size.x {
-                    // let sum = origin + Vector2::new(ix as isize, iy as isize);
-                    // let index: Vector2<usize>;
-
-                    // if sum.x < 0 || sum.y < 0 {
-                    // index = Vector2::new(
-                    // size_indexed_i.x - sum.x,
-                    // size_indexed_i.y - sum.y,
-                    // )
-                    // .cast::<usize>()
-                    // .unwrap();
-                    // } else if sum.x > size_indexed_i.x || sum.y > size_indexed_i.y {
-                    // index = Vector2::new(
-                    // sum.x - size_indexed_i.x,
-                    // sum.y - size_indexed_i.y,
-                    // )
-                    // .cast::<usize>()
-                    // .unwrap();
-                    // } else {
-                    // index = Vector2::new(ix, iy).cast::<usize>().unwrap();
-                    // }
-
-                    // content.push((input[index.x][index.y].to_owned(), index));
-                    // }
-                    // }
-
-                    // debug_assert_eq!(content.len(), chunk_size.x * chunk_size.y);
-
-                    // let formatted = arrayify(content, &chunk_size);
-                    // adjacency.neighbours[i] = Some(formatted);
-
-                    // continue;
-                    // }
                 }
 
                 let origin_invalid = origin.x < 0
