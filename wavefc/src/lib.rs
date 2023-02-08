@@ -2,17 +2,12 @@ pub mod helpers;
 pub mod prelude;
 pub mod stringtools;
 
-pub use helpers::BorderMode;
-
-use cgmath::Vector2;
+use cgmath::{Vector2, vec2};
 use helpers::*;
 use rand::prelude::*;
 use rand::thread_rng;
 use std::clone::Clone;
 use std::sync::Arc;
-
-#[cfg(feature = "serde")]
-use serde::{de::Visitor, ser::SerializeStruct, Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
@@ -23,8 +18,6 @@ mod tests;
 pub enum Flags {
     NoWeights = 1,
     NoTransforms,
-    NoHistory,
-    PruneDeadweight,
 }
 
 /// Encapsulation for the Wave Function Collapse implementation.
@@ -32,13 +25,11 @@ pub enum Flags {
 pub struct Wave {
     pub flags: Vec<Flags>,
     patterns: Vec<Pattern>,
-    patterns_total: usize,
+    patterns_total: u32,
     elements: Vec<Element>,
-    chunk_size: Vector2<usize>,
-    chunk_fill_size: Vector2<usize>,
-    history: Vec<Record>,
-    iterations: usize,
-    debug: bool,
+    chunk_size: Vector2<u32>,
+    chunk_fill_size: Vector2<u32>,
+    iterations: u32,
 }
 
 impl Wave {
@@ -50,15 +41,8 @@ impl Wave {
             elements: vec![],
             chunk_size: Vector2::new(0, 0),
             chunk_fill_size: Vector2::new(0, 0),
-            history: vec![],
             iterations: 0,
-            debug: false,
         }
-    }
-
-    /// Sets the debug mode for the wave. This will print some extra output helpful for debugging.
-    pub fn set_debug(&mut self) {
-        self.debug = true;
     }
 
     /// Collapses continuously until the wave function either completely collapses or the max number of contradictions (attempts has been reached).
@@ -93,7 +77,7 @@ impl Wave {
         while !self.completely_collapsed() {
             self.collapse_once();
 
-            if self.contradiction_occurred() {
+            if self.has_contradiction_occurred() {
                 failures += 1;
 
                 if failures == max_contradictions {
@@ -108,64 +92,19 @@ impl Wave {
             }
 
             if let Some(cb) = &callback {
-                cb(self.iterations, failures, self.current_rep());
+                cb(self.iterations, failures, self.current_state());
             }
         }
 
         Ok(())
     }
 
-    fn contradiction_occurred(&self) -> bool {
+    fn has_contradiction_occurred(&self) -> bool {
         self.elements.iter().filter(|e| e.values.is_empty()).count() != 0
     }
 
     fn completely_collapsed(&self) -> bool {
         self.elements.iter().all(|e| e.is_collapsed())
-    }
-
-    /// Returns the perfect representation of the current internal state of the wave.
-    ///
-    /// This function will throw an error if the internal wave isn't completely collapsed.
-    pub fn perfect_rep(&self) -> Result<Vec<Vec<usize>>, String> {
-        if self.elements.is_empty() {
-            return Err("There are no superpositions to create a representation from".to_owned());
-        }
-
-        if self.contradiction_occurred() {
-            return Err(
-                "A contradiction occurred preventing the formation of a perfect representation"
-                    .to_owned(),
-            );
-        }
-
-        if !self.completely_collapsed() {
-            return Err("The superpositions aren't completely collapsed yet".to_owned());
-        }
-
-        let mut pairs: Vec<(usize, Vector2<usize>)> = vec![];
-
-        for element in self.elements.iter() {
-            let real_origin = Vector2 {
-                x: element.position.x * self.chunk_size.x,
-                y: element.position.y * self.chunk_size.y,
-            };
-
-            let contents = &element.values.first().unwrap().contents;
-
-            for (x, col) in contents.iter().enumerate() {
-                for (y, id) in col.iter().enumerate() {
-                    let real_pos = Vector2 {
-                        x: real_origin.x + x,
-                        y: real_origin.y + y,
-                    };
-
-                    pairs.push((*id, real_pos));
-                }
-            }
-        }
-
-        let result = arrayify(pairs, &self.true_size());
-        Ok(result)
     }
 
     fn true_size(&self) -> Vector2<usize> {
@@ -175,7 +114,7 @@ impl Wave {
         }
     }
 
-    pub fn current_rep(&self) -> Vec<Vec<Vec<usize>>> {
+    pub fn current_state(&self) -> Vec<Vec<Vec<usize>>> {
         if self.elements.is_empty() {
             return vec![];
         }
@@ -199,7 +138,7 @@ impl Wave {
                     );
 
                     for value in &element.values {
-                        new_pair.0.push(value.contents[cx][cy]);
+                        new_pair.0.push(value.data[cx][cy]);
                     }
 
                     // deduplication is required because when working with the overlapping tiled
@@ -271,28 +210,9 @@ impl Wave {
         } else {
             borrow
                 .values
-                .choose_weighted(&mut rng, |v| v.count)
+                .choose_weighted(&mut rng, |v| v.frequency)
                 .unwrap()
         };
-        
-        if self.debug {
-            println!("Chosen element to collapse too.");
-        }
-
-        if self.flags.contains(&Flags::NoHistory) {
-            if self.debug {
-                println!("Creating history record.");
-            }
-
-            let previous_pattern_ids = borrow.values.iter().map(|p| p.id).collect();
-            let new_record = Record::new(
-                borrow.position.clone(),
-                choice.id,
-                previous_pattern_ids,
-                self.iterations,
-            );
-            self.history.push(new_record);
-        }
 
         // finish collapse!
         let choice_value = choice.clone();
@@ -347,9 +267,7 @@ impl Wave {
             let mut new_references = vec![];
             let mut new_locs = vec![];
 
-            if self.debug {
-                println!("Propagating output to {:?}", current_locs);
-            }
+            println!("Propagating output to {:?}", current_locs);
 
             // *** Value Pruning ***
             for i in indexes {
@@ -367,7 +285,7 @@ impl Wave {
 
                             for rule_set in &reference.1 {
                                 for rule in rule_set {
-                                    if rule.content == value.contents && rule.direction == direction
+                                    if rule.adjacent_data == value.data && rule.direction == direction
                                     {
                                         valid = true;
                                         break 'refloop;
@@ -424,9 +342,7 @@ impl Wave {
     }
 
     pub fn fill(&mut self, size: Vector2<usize>) -> Result<(), String> {
-        if self.debug {
-            println!("Filling superpositions with the following size: {:?}", size);
-        }
+        println!("Filling superpositions with the following size: {:?}", size);
 
         if size.x % self.chunk_size.x != 0 {
             return Err("The output width must be a factor of the chunk size".to_owned());
@@ -469,7 +385,7 @@ impl Wave {
         &mut self,
         input: Vec<Vec<usize>>,
         chunk_size: Vector2<usize>,
-        border_mode: BorderMode,
+        include_border_chunks: bool,
     ) {
         let adjacencies = overlapping_adjacencies(input.to_owned(), chunk_size, border_mode);
         let initial_count = adjacencies.len();
@@ -501,34 +417,34 @@ impl Wave {
             // transform time!
             for pattern in patterns.iter() {
                 let mut mirrored_x = pattern.to_owned();
-                mirrored_x.is_transform = true;
+                mirrored_x.is_derivative = true;
                 mirrored_x.id = id_counter;
                 id_counter += 1;
 
                 let mut mirrored_y = pattern.to_owned();
-                mirrored_y.is_transform = true;
+                mirrored_y.is_derivative = true;
                 mirrored_y.id = id_counter;
                 id_counter += 1;
 
                 let mut combination = pattern.to_owned();
-                combination.is_transform = true;
+                combination.is_derivative = true;
                 combination.id = id_counter;
                 id_counter += 1;
 
-                mirrored_x.contents.reverse();
+                mirrored_x.data.reverse();
 
-                for x_val in mirrored_y.contents.iter_mut() {
+                for x_val in mirrored_y.data.iter_mut() {
                     x_val.reverse();
                 }
 
-                combination.contents.reverse();
-                for x_val in combination.contents.iter_mut() {
+                combination.data.reverse();
+                for x_val in combination.data.iter_mut() {
                     x_val.reverse();
                 }
 
                 let x_transf = |rule: &mut Rule| {
                     // rule content must also be mirrored: AB CD EF -> FE DC BA
-                    rule.content.reverse();
+                    rule.adjacent_data.reverse();
 
                     // only horizontal rules are reversed in place
                     if rule.direction == 1 {
@@ -540,7 +456,7 @@ impl Wave {
 
                 let y_transf = |rule: &mut Rule| {
                     // mirror rule content on y-axis
-                    for row in rule.content.iter_mut() {
+                    for row in rule.adjacent_data.iter_mut() {
                         row.reverse();
                     }
 
@@ -626,13 +542,13 @@ fn update_pattern_counts(patterns: &mut Vec<Pattern>) {
     // Counting doesn't deal with transforms,
     // as they aren't part of the original
     // patterns.
-    let copy = patterns.to_owned().into_iter().filter(|p| !p.is_transform).collect::<Vec<_>>();
+    let copy = patterns.to_owned().into_iter().filter(|p| !p.is_derivative).collect::<Vec<_>>();
     
-    for pattern in patterns.iter_mut().filter(|p| !p.is_transform) {
+    for pattern in patterns.iter_mut().filter(|p| !p.is_derivative) {
         for patcopy in &copy {
-            if pattern.contents == patcopy.contents {
+            if pattern.data == patcopy.data {
                 if pattern.id != patcopy.id {
-                    pattern.count += 1;
+                    pattern.frequency += 1;
                 }
             }
         }
@@ -648,7 +564,7 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
     // checker happy by just calling dedup methods shortly.
     for pattern in patterns.iter_mut() {
         for patcopy in &copy {
-            if pattern.contents == patcopy.contents {
+            if pattern.data == patcopy.data {
                 if pattern.id != patcopy.id {
                     // check duplicate's rules
                     for rule in &patcopy.rules {
@@ -677,22 +593,21 @@ fn dedup_patterns(patterns: &mut Vec<Pattern>) {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct Pattern {
-    id: usize,
-    is_transform: bool,
-    count: usize,
-    contents: Vec<Vec<usize>>,
+    id: u32,
+    is_derivative: bool,
+    frequency: u32,
+    data: Vec<Vec<u32>>,
     rules: Vec<Rule>,
 }
 
 impl Pattern {
-    fn new(id: usize, contents: Vec<Vec<usize>>) -> Self {
+    fn new(id: u32, contents: Vec<Vec<u32>>) -> Self {
         Pattern {
             id,
-            is_transform: false,
-            count: 1,
-            contents,
+            is_derivative: false,
+            frequency: 1,
+            data: contents,
             rules: vec![],
         }
     }
@@ -700,7 +615,7 @@ impl Pattern {
 
 impl PartialEq for Pattern {
     fn eq(&self, other: &Self) -> bool {
-        self.contents == other.contents && self.rules == other.rules && self.count == other.count
+        self.data == other.data && self.rules == other.rules && self.frequency == other.frequency
     }
 }
 
@@ -708,31 +623,30 @@ impl Eq for Pattern {}
 
 impl PartialOrd for Pattern {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.contents.cmp(&other.contents))
+        Some(self.data.cmp(&other.data))
     }
 }
 
 impl Ord for Pattern {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.contents.cmp(&other.contents)
+        self.data.cmp(&other.data)
     }
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct Rule {
     /// direction corresponds to the top, right, bottom, left directions
     /// 0: up
     /// 1: right
-    /// 2: down
+    /// 2: downS
     direction: u8,
     /// The valid neighbour for the originating pattern of this rule.
-    content: Vec<Vec<usize>>,
+    adjacent_data: Vec<Vec<usize>>,
 }
 
 impl Rule {
     fn new(direction: u8, content: Vec<Vec<usize>>) -> Self {
-        Self { direction, content }
+        Self { direction, adjacent_data: content }
     }
 }
 
@@ -760,7 +674,7 @@ impl Element {
         let mut total = 0f32;
 
         for pattern in self.values.iter() {
-            let prob = pattern.count as f32 / patterns_total as f32;
+            let prob = pattern.frequency as f32 / patterns_total as f32;
             let entropy = prob * (1.0 / prob).log2();
             total += entropy;
         }
@@ -770,241 +684,5 @@ impl Element {
 
     fn is_collapsed(&self) -> bool {
         self.values.len() == 1
-    }
-}
-
-// History Related Functions and Code
-// 
-// PLEASE NOTE: NONE OF THE HISTORY TRACKING CODE HAS BEEN
-// TESTED. IT IS PURELY SCAFFOLDING AND AN IDEA.
-impl Wave {
-    /// Clears the wave's internal history log.
-    pub fn clear_history(&mut self) {
-        self.history.clear();
-    }
-
-    /// Undo's the last collapse undertaken by the algorithm.
-    ///
-    /// # Parameters:
-    ///
-    /// * `remove_record`: Determines whether the operation being undone should be forgotten in the internal history log or remembered.
-    ///
-    /// # Notes:
-    ///
-    /// * If the internal history log for the `Wave` is empty, this function does nothing.
-    /// * If `remove_record` is set to true, if an error is returned, **DO NOT** attempt another undo.
-    ///     * In this situation, the last undo will have been marked as undone but an error occurred during this process. Undoing again will likely result in an error for a variety of reasons.
-    pub fn undo_collapse(&mut self, remove_record: bool) -> Result<(), String> {
-        // Don't include undone records in the eventuality `remove_record` was marked false.
-        let last_record = self
-            .history
-            .iter_mut()
-            .enumerate()
-            .filter(|r| !r.1.undone)
-            .last();
-
-        if let Some(record_info) = last_record {
-            let index = record_info.0;
-
-            record_info.1.undone = true;
-            let clone = record_info.1.clone();
-            self.reverse_record(clone)?;
-
-            if remove_record {
-                self.history.remove(index);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Redos the previous undo if one occured. Otherwise, this function does nothing.
-    ///
-    /// # Notes:
-    ///
-    /// *
-    pub fn redo_collapse(&mut self) -> Result<(), String> {
-        let last_undone = self.history.iter_mut().find(|r| r.undone);
-
-        if let Some(undone_record) = last_undone {
-            undone_record.undone = false;
-            let copy = undone_record.clone();
-            self.execute_record(copy)?;
-        } else if let Some(last_record) = self.history.last_mut() {
-            let copy = last_record.clone();
-            self.execute_record(copy)?;
-        }
-
-        Ok(())
-    }
-
-    /// Undos the previous collapse as described in the record.
-    ///
-    /// # Notes:
-    ///
-    /// * This function has the same quirks and behaviours that `execute_record` does due to their similar nature.
-    /// * This function decrements the internal iterations count.
-    fn reverse_record(&mut self, record: Record) -> Result<(), String> {
-        if record.iteration != self.iterations {
-            return Err(
-                "This record's iteration does not match the internal state of the Wave".to_string(),
-            );
-        }
-
-        let element = self
-            .elements
-            .iter_mut()
-            .find(|e| e.position == record.location());
-        if element.is_none() {
-            return Err("Failed to find element at the specified location".to_string());
-        };
-
-        let patterns: Vec<&Pattern> = self
-            .patterns
-            .iter()
-            .filter(|p| record.previous_pattern_ids.contains(&p.id))
-            .collect();
-        if patterns.is_empty() {
-            return Err("Failed to find any patterns for the record id. This is possible, but shouldn't happen with the `Wave` history functioning as intended.".to_string());
-        };
-        let references = patterns.into_iter().map(|p| Arc::new(p.clone())).collect();
-
-        element.unwrap().values = references;
-        self.iterations -= 1;
-
-        Ok(())
-    }
-
-    /// Executes the given record by attempting to perform the predetermined collapse it contains.
-    ///
-    /// This function can fail and return an error if the given record has invalid values that don't match with the state of the wave.
-    ///
-    /// # Notes:
-    ///
-    /// * This function will fail if the record's iteration does not line up with the current iteration.
-    /// * This function has an inefficiency where, when searching for the pattern specified, it has to make a copy of it and create a new `Arc` to that copy.
-    ///     * This could be subverted by searching for a prexisting copy of a `Arc` to that specific pattern in the other elements. However, I'm guessing this would be time intensive. For now the memory trade-off is being prioritized over the processing trade-off.
-    fn execute_record(&mut self, record: Record) -> Result<(), String> {
-        if record.iteration != self.iterations {
-            return Err(
-                "This record's iteration does not match the internal state of the Wave".to_string(),
-            );
-        }
-
-        let element = self
-            .elements
-            .iter_mut()
-            .find(|e| e.position == record.location());
-        if element.is_none() {
-            return Err("Failed to find element at the specified location".to_string());
-        };
-
-        let pattern = self
-            .patterns
-            .iter()
-            .find(|p| p.id == record.chosen_pattern_id);
-        if pattern.is_none() {
-            return Err("Failed to find pattern for the record id".to_string());
-        };
-        let reference = Arc::new(pattern.unwrap().clone());
-
-        element.unwrap().values = vec![reference];
-
-        Ok(())
-    }
-}
-
-#[derive(Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-struct Record {
-    element_location: [usize; 2],
-    /// An index in the patterns of the Wave for the selected value
-    chosen_pattern_id: usize,
-    previous_pattern_ids: Vec<usize>,
-    /// The current `Wave` iteration when the record was made.
-    iteration: usize,
-    undone: bool,
-}
-
-impl Record {
-    fn new(
-        location: Vector2<usize>,
-        chosen_pattern_id: usize,
-        previous_pattern_ids: Vec<usize>,
-        iteration: usize,
-    ) -> Self {
-        Record {
-            element_location: [location.x, location.y],
-            chosen_pattern_id,
-            previous_pattern_ids,
-            iteration,
-            undone: false,
-        }
-    }
-
-    fn location(&self) -> Vector2<usize> {
-        Vector2::new(self.element_location[0], self.element_location[1])
-    }
-}
-
-#[cfg(feature = "serde")]
-mod wave_serialization {
-    use super::*;
-
-    impl Serialize for Wave {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let mut state = serializer.serialize_struct("Wave", 7)?;
-            state.serialize_field("flags", &self.flags)?;
-            state.serialize_field("patterns", &self.patterns)?;
-            state.serialize_field("patterns_total", &self.patterns_total)?;
-            state.serialize_field("chunk_size", &[self.chunk_size.x, self.chunk_size.y])?;
-            state.serialize_field(
-                "chunk_fill_size",
-                &[self.chunk_fill_size.x, self.chunk_fill_size.y],
-            )?;
-            state.serialize_field("history", &self.history)?;
-            state.serialize_field("iterations", &self.iterations)?;
-            state.end()
-        }
-    }
-
-    struct WaveVisitor;
-
-    impl<'de> Visitor<'de> for WaveVisitor {
-        type Value = Wave;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "expecting wave object")
-        }
-    }
-
-    impl Default for WaveVisitor {
-        fn default() -> Self {
-            Self {}
-        }
-    }
-
-    impl<'de> Deserialize<'de> for Wave {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            deserializer.deserialize_struct(
-                "Wave",
-                &[
-                    "flags",
-                    "patterns",
-                    "patterns_total",
-                    "chunk_size",
-                    "chunk_fill_size",
-                    "history",
-                    "iterations",
-                ],
-                WaveVisitor::default(),
-            )
-        }
     }
 }

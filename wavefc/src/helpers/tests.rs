@@ -27,44 +27,6 @@ fn arrayify_works() {
 }
 
 #[test]
-fn roll_works() {
-    let mut array = vec![
-        vec![0, 0, 1, 1],
-        vec![1, 1, 0, 0],
-        vec![0, 1, 1, 0],
-        vec![1, 0, 0, 1],
-    ];
-
-    let expected_1 = vec![
-        vec![1, 0, 0, 1],
-        vec![0, 1, 1, 0],
-        vec![0, 0, 1, 1],
-        vec![1, 1, 0, 0],
-    ];
-
-    let expected_2 = vec![
-        vec![1, 1, 0, 0],
-        vec![0, 0, 1, 1],
-        vec![1, 0, 0, 1],
-        vec![0, 1, 1, 0],
-    ];
-
-    let expected_3 = vec![
-        vec![0, 1, 1, 0],
-        vec![1, 1, 0, 0],
-        vec![0, 0, 1, 1],
-        vec![1, 0, 0, 1],
-    ];
-
-    roll(&mut array, 1, true, false);
-    assert_eq!(array, expected_1);
-    roll(&mut array, 1, true, false);
-    assert_eq!(array, expected_2);
-    roll(&mut array, 1, false, true);
-    assert_eq!(array, expected_3);
-}
-
-#[test]
 fn overlapping_adjacencies_works() {
     // row (y) -> col (x)
     let input = vec![

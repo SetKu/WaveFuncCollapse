@@ -18,24 +18,24 @@ fn wave_collapse_once_works() {
 fn dedup_and_count_patterns_works() {
     let mut patterns = vec![
         Pattern {
-            is_transform: false,
+            is_derivative: false,
             id: 0,
-            count: 1,
-            contents: vec![vec![0]],
+            frequency: 1,
+            data: vec![vec![0]],
             rules: vec![Rule::new(0, vec![vec![1]])],
         },
         Pattern {
-            is_transform: false,
+            is_derivative: false,
             id: 1,
-            count: 1,
-            contents: vec![vec![1]],
+            frequency: 1,
+            data: vec![vec![1]],
             rules: vec![Rule::new(2, vec![vec![0]])],
         },
         Pattern {
-            is_transform: false,
+            is_derivative: false,
             id: 2,
-            count: 1,
-            contents: vec![vec![1]],
+            frequency: 1,
+            data: vec![vec![1]],
             rules: vec![Rule::new(2, vec![vec![0]]), Rule::new(2, vec![vec![0]])],
         },
     ];
@@ -47,7 +47,7 @@ fn dedup_and_count_patterns_works() {
     assert!(patterns.iter().all(|p| p.rules.len() == 1));
 
     assert_eq!(
-        patterns.iter().map(|p| p.count).filter(|c| *c == 2).count(),
+        patterns.iter().map(|p| p.frequency).filter(|c| *c == 2).count(),
         1,
         "{:#?}",
         patterns,
@@ -57,9 +57,9 @@ fn dedup_and_count_patterns_works() {
 
     for pattern in patterns.iter() {
         let mut hasher = DefaultHasher::new();
-        hasher.write_usize(pattern.count);
+        hasher.write_usize(pattern.frequency);
 
-        for row in &pattern.contents {
+        for row in &pattern.data {
             for n in row {
                 hasher.write_usize(*n);
             }
@@ -68,7 +68,7 @@ fn dedup_and_count_patterns_works() {
         for rule in &pattern.rules {
             hasher.write_u8(rule.direction);
 
-            for row in &rule.content {
+            for row in &rule.adjacent_data {
                 for n in row {
                     hasher.write_usize(*n);
                 }
@@ -86,16 +86,16 @@ fn dedup_and_count_patterns_works() {
     let mut second_test = vec![
         Pattern {
             id: 3,
-            is_transform: false,
-            count: 1,
-            contents: vec![vec![2]],
+            is_derivative: false,
+            frequency: 1,
+            data: vec![vec![2]],
             rules: vec![Rule::new(1, vec![vec![1]]), Rule::new(3, vec![vec![1]])],
         },
         Pattern {
             id: 0,
-            is_transform: false,
-            count: 1,
-            contents: vec![vec![0]],
+            is_derivative: false,
+            frequency: 1,
+            data: vec![vec![0]],
             rules: vec![
                 Rule::new(0, vec![vec![1]]),
                 Rule::new(1, vec![vec![1]]),
@@ -105,9 +105,9 @@ fn dedup_and_count_patterns_works() {
         },
         Pattern {
             id: 10,
-            is_transform: true,
-            count: 1,
-            contents: vec![vec![2]],
+            is_derivative: true,
+            frequency: 1,
+            data: vec![vec![2]],
             rules: vec![Rule::new(0, vec![vec![1]])],
         },
     ];
@@ -120,9 +120,9 @@ fn dedup_and_count_patterns_works() {
         second_test[1],
         Pattern {
             id: 3,
-            is_transform: false,
-            count: 1,
-            contents: vec![vec![2]],
+            is_derivative: false,
+            frequency: 1,
+            data: vec![vec![2]],
             rules: vec![
                 Rule::new(0, vec![vec![1]]),
                 Rule::new(1, vec![vec![1]]),
