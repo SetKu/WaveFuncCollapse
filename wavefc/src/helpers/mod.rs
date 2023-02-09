@@ -1,8 +1,6 @@
 #![warn(
-    clippy::all,
     clippy::pedantic,
     clippy::nursery,
-    // clippy::cargo,
 )]
 
 #[cfg(test)]
@@ -120,42 +118,20 @@ pub(crate) fn adjacencies(
     list
 }
 
-pub fn noneg_neighbours(origin: &Vector2<usize>) -> Vec<Vector2<usize>> {
-    let cast = origin.cast::<isize>().unwrap();
-    let val = vec![
-        Vector2::new(cast.x, cast.y - 1),
-        Vector2::new(cast.x + 1, cast.y),
-        Vector2::new(cast.x, cast.y + 1),
-        Vector2::new(cast.x - 1, cast.y),
-    ];
-
-    val.into_iter()
-        .filter(|v| v.x >= 0 && v.y >= 0)
-        .map(|v| v.cast::<usize>().unwrap())
-        .collect()
+pub(crate) fn orthogonal(o: &Vector2<i32>) -> [Vector2<i32>; 4] {
+    [
+        Vector2::new(o.x, o.y - 1),
+        Vector2::new(o.x + 1, o.y),
+        Vector2::new(o.x, o.y + 1),
+        Vector2::new(o.x - 1, o.y),
+    ]
 }
 
-pub fn remove_indexes<T>(vec: &mut Vec<T>, indexes: Vec<usize>) {
-    let mut removed = 0usize;
+pub(crate) fn remove_indexes<T>(vec: &mut Vec<T>, indexes: Vec<usize>) {
+    let mut removed = 0_usize;
 
     for i in indexes {
         vec.remove(i - removed);
         removed += 1;
-    }
-}
-
-pub fn orthog_direction(origin: &Vector2<usize>, point: &Vector2<usize>) -> u8 {
-    let diff = point.cast::<isize>().unwrap() - origin.cast::<isize>().unwrap();
-
-    if diff.x < 0 {
-        3
-    } else if diff.x > 0 {
-        1
-    } else if diff.y < 0 {
-        2
-    } else if diff.y > 0 {
-        0
-    } else {
-        0
     }
 }
