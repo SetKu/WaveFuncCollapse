@@ -35,9 +35,5 @@ fn collapse_bench(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    analysis_bench,
-    collapse_bench
-);
+criterion_group!(benches, analysis_bench, collapse_bench);
 criterion_main!(benches);

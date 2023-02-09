@@ -9,9 +9,9 @@ use open::that;
 use std::collections::HashMap;
 use std::fs::canonicalize;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use std::sync::{Mutex, Arc};
 use wavefc::prelude::*;
 
 const EXTRA_THREAD_COUNT: usize = 4;

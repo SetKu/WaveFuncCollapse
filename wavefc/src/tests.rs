@@ -47,7 +47,11 @@ fn dedup_and_count_patterns_works() {
     assert!(patterns.iter().all(|p| p.rules.len() == 1));
 
     assert_eq!(
-        patterns.iter().map(|p| p.frequency).filter(|c| *c == 2).count(),
+        patterns
+            .iter()
+            .map(|p| p.frequency)
+            .filter(|c| *c == 2)
+            .count(),
         1,
         "{:#?}",
         patterns,

@@ -2,7 +2,7 @@ pub mod helpers;
 pub mod prelude;
 pub mod stringtools;
 
-use cgmath::{Vector2, vec2};
+use cgmath::{vec2, Vector2};
 use helpers::*;
 use rand::prelude::*;
 use rand::thread_rng;
@@ -256,7 +256,7 @@ impl Wave {
 
             if indexes.is_empty() {
                 // propagation finished!
-                
+
                 if self.debug {
                     println!("Finished propagating.");
                 }
@@ -285,7 +285,8 @@ impl Wave {
 
                             for rule_set in &reference.1 {
                                 for rule in rule_set {
-                                    if rule.adjacent_data == value.data && rule.direction == direction
+                                    if rule.adjacent_data == value.data
+                                        && rule.direction == direction
                                     {
                                         valid = true;
                                         break 'refloop;
@@ -542,8 +543,12 @@ fn update_pattern_counts(patterns: &mut Vec<Pattern>) {
     // Counting doesn't deal with transforms,
     // as they aren't part of the original
     // patterns.
-    let copy = patterns.to_owned().into_iter().filter(|p| !p.is_derivative).collect::<Vec<_>>();
-    
+    let copy = patterns
+        .to_owned()
+        .into_iter()
+        .filter(|p| !p.is_derivative)
+        .collect::<Vec<_>>();
+
     for pattern in patterns.iter_mut().filter(|p| !p.is_derivative) {
         for patcopy in &copy {
             if pattern.data == patcopy.data {
@@ -646,13 +651,16 @@ struct Rule {
 
 impl Rule {
     fn new(direction: u8, content: Vec<Vec<usize>>) -> Self {
-        Self { direction, adjacent_data: content }
+        Self {
+            direction,
+            adjacent_data: content,
+        }
     }
 }
 
 // An element represents a chunk within the wave,
 // not necessarily an individual element. Instead,
-// the element consists of individual patterns 
+// the element consists of individual patterns
 // which can be a single pixel or a rectangular 'pattern'
 // of pixels.
 #[derive(Clone)]
