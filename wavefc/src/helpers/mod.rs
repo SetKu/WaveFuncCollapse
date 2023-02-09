@@ -118,11 +118,12 @@ pub(crate) fn adjacencies(
     list
 }
 
+/// Returns in the order top (0), right, bottom, left. Assumes top has an incremented y-value.
 pub(crate) fn orthogonal(o: &Vector2<i32>) -> [Vector2<i32>; 4] {
     [
-        Vector2::new(o.x, o.y - 1),
-        Vector2::new(o.x + 1, o.y),
         Vector2::new(o.x, o.y + 1),
+        Vector2::new(o.x + 1, o.y),
+        Vector2::new(o.x, o.y - 1),
         Vector2::new(o.x - 1, o.y),
     ]
 }
