@@ -1,4 +1,5 @@
 #![warn(clippy::pedantic, clippy::nursery)]
+#![allow(unused)]
 
 #[cfg(test)]
 mod tests;
@@ -23,12 +24,19 @@ pub struct Adjacency {
     pub neighbours_data: [Option<Vec<Vec<u32>>>; 4],
 }
 
-// Overlapping
+/// Returns all the possible overlapping adjacent tiles in the input grid. The chunk size determines the dimension of each tile.
+///
+/// To determine whether higher y values are considered up or down, use the `up_is_greater` flag.
+///
+/// If you want to eliminate tiles that are on the border of the input, simply filter out the tiles which are missing a neighbour.
+///
+/// Note: The behaviour of the function is undefined for a grid that's columns have varying length. In most events, this will cause a panic.
 pub fn adjacencies(
     input: &[Vec<u32>],
     chunk_size: Vector2<u32>,
     up_is_greater: bool,
 ) -> Vec<Adjacency> {
+    // Avoid panics with zeroed chunk sizes.
     if chunk_size.x.is_zero() || chunk_size.y.is_zero() {
         return vec![];
     }
@@ -36,11 +44,12 @@ pub fn adjacencies(
     let size = dimensions_of(input);
     let mut list: Vec<Adjacency> = vec![];
 
-    // Avoid calculating for a root that doesn't exist.
+    // Avoid calculating for a root that doesn't exist by excluding the edge for the chunk size.
     for x in 0..=(size.x - chunk_size.x as usize) {
         for y in 0..=(size.y - chunk_size.y as usize) {
             let mut root = vec![]; // [x][y]
 
+            // Iterate through root data indexes, collecting their data for the adjacency.
             for ix in 0..(chunk_size.x as usize) {
                 root.push(vec![]);
 
@@ -49,6 +58,7 @@ pub fn adjacencies(
                 }
             }
 
+            // Compile a list of possible origins for neighbour tiles from the root.
             let new_origins = [
                 (0_i32, if up_is_greater { 1 } else { -1 }),
                 (1, 0),
@@ -57,6 +67,7 @@ pub fn adjacencies(
             ]
             .into_iter()
             .map(|pair| {
+                // Mapping here accounts for if the chunk size cast fails, for whatever reason.
                 chunk_size.cast::<i32>().map(|cast| {
                     // Wrapping and truncation aren't a problem here as both are less than a u32::MAX - 1.
                     // In the event either occur, they will be flipped negative and not checked when
@@ -69,13 +80,14 @@ pub fn adjacencies(
             let mut neighbours = [None, None, None, None];
 
             for (i, origin) in new_origins.enumerate() {
+                // Skip invalidated origins.
                 if origin.is_none() {
                     continue;
                 }
 
                 let origin = origin.unwrap();
 
-                // Check if the origin or its endpoint is out of bounds.
+                // Check if the origin or its endpoint is out of bounds, making the tile invalid.
                 if origin.x < 0 || origin.y < 0 {
                     continue;
                 }
@@ -91,6 +103,7 @@ pub fn adjacencies(
 
                 let mut data = vec![];
 
+                // Collect data for adjacent tile like we did the root.
                 for ix in 0..(chunk_size.x as usize) {
                     data.push(vec![]);
 
@@ -101,6 +114,7 @@ pub fn adjacencies(
                     }
                 }
 
+                // Update the neighbour data in the index we're keeping.
                 neighbours[i] = Some(data);
             }
 
@@ -138,6 +152,7 @@ pub struct Sample<T> {
     map: HashMap<u32, T>,
 }
 
+/// Converts a given grid-like string into an xy-oriented ([x][y]) vector of bits along with a map relating these bits to their original characters.
 pub fn deconstruct_string(input: &str, use_whitespace: bool) -> Sample<char> {
     let mut sample = Sample {
         grid: Vec::with_capacity(input.lines().count()),
@@ -149,17 +164,22 @@ pub fn deconstruct_string(input: &str, use_whitespace: bool) -> Sample<char> {
     for (y, text) in input.lines().enumerate() {
         let chars = text.chars();
 
-        for (x, ch) in if use_whitespace {
+        // Since enumeration is used below, simply skipping whitespace in the loop would screw up the count.
+        // To avoid this, we filter the list of whitespace, if requested, before iterating.
+        let iterator = if use_whitespace {
             chars.enumerate().collect::<Vec<(usize, char)>>()
         } else {
             chars.filter(|v| !v.is_whitespace()).enumerate().collect()
-        } {
+        };
+
+        for (x, ch) in iterator {
             if sample.grid.len() < x + 1 {
                 // Make space for at least the current y-value.
                 // Saves time.
                 sample.grid.push(Vec::with_capacity(y));
             }
 
+            // Translate the character into a bit, whether one exists for it or not.
             let translation: u32 = sample
                 .map
                 .iter()
