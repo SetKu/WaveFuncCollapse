@@ -154,13 +154,10 @@ pub fn deconstruct_string(input: &str, use_whitespace: bool) -> Sample<char> {
         } else {
             chars.filter(|v| !v.is_whitespace()).enumerate().collect()
         } {
-            dbg!(x);
-
             if sample.grid.len() < x + 1 {
                 // Make space for at least the current y-value.
                 // Saves time.
                 sample.grid.push(Vec::with_capacity(y));
-                println!("added new col");
             }
 
             let translation: u32 = sample
