@@ -1,6 +1,3 @@
-#![warn(clippy::pedantic, clippy::nursery)]
-#![allow(unused)]
-
 #[cfg(test)]
 mod tests;
 

@@ -1,14 +1,46 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(unused)]
+
 mod helpers;
+
+use cgmath::{vec2, Vector2, Zero};
+use rand::thread_rng;
+use std::clone::Clone;
+
+pub struct WaveInput {
+    data: Vec<Vec<u32>>,
+    chunk_size: Vector2<u32>,
+}
+
+impl WaveInput {
+    #[must_use]
+    pub fn new(data: Vec<Vec<u32>>, chunk_size: Vector2<u32>) -> Self {
+        Self { data, chunk_size }
+    }
+}
+
+pub const fn analyze_map(input: &WaveInput) {
+    #[cfg(test)]
+    {
+        assert!(!input.chunk_size.x.is_zero());
+        assert!(!input.chunk_size.y.is_zero());
+        assert!(!input.data.is_empty());
+
+        // Check for a uniform grid length.
+        if input.data.len() > 1 {
+            let mut lengths = input.data.iter().map(|v| v.len());
+            let first = lengths.next().unwrap();
+            assert!(lengths.all(|v| v == first));
+        }
+    }
+}
 
 // pub mod prelude;
 // pub mod stringtools;
 
-// use cgmath::{vec2, Vector2};
 // use helpers::*;
-// use rand::prelude::*;
-// use rand::thread_rng;
-// use std::clone::Clone;
 // use std::sync::Arc;
+// use rand::prelude::*;
 
 // #[cfg(test)]
 // mod tests;
