@@ -239,7 +239,7 @@ impl Wave {
                 continue;
             }
 
-            let entropy = element.entropy(self.patterns_total);
+            let entropy = element.entropy();
 
             if entropy == 0. {
                 continue;
@@ -311,7 +311,6 @@ impl Wave {
     pub fn propagate(&mut self, center_element: usize) {
         let center = &self.elements[center_element];
         let center_pos = center.position.clone();
-        std::mem::drop(center);
 
         if self.debug {
             println!("Propagating from {:?}", center_pos);
@@ -575,6 +574,7 @@ impl Wave {
             patterns.append(&mut new_patterns);
         }
 
+        // Some patterns might have already been transformations of each others, and their transformations might have been transformations of other transformations. Suffice it to say, we'll dedup again.
         dedup_patterns(&mut patterns);
 
         self.patterns = patterns;
@@ -584,8 +584,13 @@ impl Wave {
         if self.flags.contains(&Flags::PruneDeadweight) {
             self.prune_lone_patterns();
         }
+
+        // Calculate pattern entropies ahead of time so it's not done repeatedly later.
+        self.calculate_pattern_entropies();
     }
 
+    // Looking back on this function a year later, I'm not quite sure what it was intended to do.
+    // I think it's designed to prune patterns of low value, based on the fact they have very few rules.
     fn prune_lone_patterns(&mut self) {
         if self.debug {
             println!("Pruning lone patterns.");
@@ -615,6 +620,14 @@ impl Wave {
         for i in indexes_to_remove {
             self.patterns.remove(i - removed);
             removed += 1;
+        }
+    }
+
+    fn calculate_pattern_entropies(&mut self) {
+        let number_of_patterns = self.patterns.len();
+
+        for pattern in self.patterns.iter_mut() {
+            pattern.calculated_entropy = Some(pattern.calculate_entropy(number_of_patterns));
         }
     }
 }
@@ -824,6 +837,7 @@ struct Pattern {
     count: usize,
     contents: Vec<Vec<usize>>,
     rules: Vec<Rule>,
+    calculated_entropy: Option<f32>,
 }
 
 impl Pattern {
@@ -834,7 +848,21 @@ impl Pattern {
             count: 1,
             contents,
             rules: vec![],
+            calculated_entropy: None,
         }
+    }
+
+    fn calculate_entropy(&self, patterns_total: usize) -> f32 {
+        // https://arc.net/l/quote/zqcrryti
+            
+        // number of outcomes / total outcomes
+        // Must be constrained to the interval [0, 1]
+        let probability = self.count as f32 / patterns_total as f32;
+
+        // H(x) = -p*log2(p)
+        // https://youtu.be/YtebGVx-Fxw?si=RXElFTvCOnrsnct9
+        // Just graph this H(x) to get a better idea of how this works.
+        probability * (probability).log2() * -1f32
     }
 }
 
@@ -895,24 +923,15 @@ impl Element {
 
     // Copying patterns directly or having it passed is more efficient than simply giving a reference,
     // as the reference size and argument size are equal at usize.
-    fn entropy(&self, patterns_total: usize) -> f32 {
+    fn entropy(&self) -> f32 {
         if self.values.is_empty() {
             return 0f32;
         }
 
         let mut total = 0f32;
 
-        // https://arc.net/l/quote/zqcrryti
         for pattern in self.values.iter() {
-            // number of outcomes / total outcomes
-            let probability = pattern.count as f32 / patterns_total as f32;
-
-            // H(x) = -p*log2(p)
-            // https://youtu.be/YtebGVx-Fxw?si=RXElFTvCOnrsnct9
-            // Just graph this H(x) to get a better idea of how this works.
-            let entropy = probability * (probability).log2() * -1f32;
-
-            total += entropy;
+            total += pattern.calculated_entropy.expect("The pattern did not have a precalculated entropy value.");
         }
 
         total
