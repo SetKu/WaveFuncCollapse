@@ -38,7 +38,7 @@ In the version 1 and version 2 of `wavefc`, only the simple-tiled model was impl
 The way the algorithm chooses which tile (superposition) to collapse next is based on the calculated entropy of a particular location. This is calculated using the probabilities of each of the possible values occurence in the original sample. These are all taken together to form the collective entropy for a given superposition.
 
 <div align="center">
-  <img src="https://latex.codecogs.com/png.image?\sum_{i=0}^{n}&space;p_i&space;\log_{2}({p_i})&space;" title="https://latex.codecogs.com/png.image?\sum_{i=0}^{n} -p_i \log_{2}({p_i}) "/>
+  <img src="https://latex.codecogs.com/png.image?\dpi{110}\bg{white}\sum_{i=0}^{n}-p_i\log_{2}({p_i})"/>
 </div>
 
 The `wavefc` library is currently single-threaded, given the sequential nature of the algorithm. However, I do recognize that a lot of performance optimizations could be made by sprinkling in some multi-threading. This is a long-term goal for the project, at the moment. I'm eyeing `rayon` pretty frequently for this specific project.
