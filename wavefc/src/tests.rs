@@ -23,6 +23,7 @@ fn dedup_and_count_patterns_works() {
             count: 1,
             contents: vec![vec![0]],
             rules: vec![Rule::new(0, vec![vec![1]])],
+            calculated_entropy: None,
         },
         Pattern {
             is_transform: false,
@@ -30,6 +31,7 @@ fn dedup_and_count_patterns_works() {
             count: 1,
             contents: vec![vec![1]],
             rules: vec![Rule::new(2, vec![vec![0]])],
+            calculated_entropy: None,
         },
         Pattern {
             is_transform: false,
@@ -37,6 +39,7 @@ fn dedup_and_count_patterns_works() {
             count: 1,
             contents: vec![vec![1]],
             rules: vec![Rule::new(2, vec![vec![0]]), Rule::new(2, vec![vec![0]])],
+            calculated_entropy: None,
         },
     ];
 
@@ -90,6 +93,7 @@ fn dedup_and_count_patterns_works() {
             count: 1,
             contents: vec![vec![2]],
             rules: vec![Rule::new(1, vec![vec![1]]), Rule::new(3, vec![vec![1]])],
+            calculated_entropy: None,
         },
         Pattern {
             id: 0,
@@ -102,6 +106,7 @@ fn dedup_and_count_patterns_works() {
                 Rule::new(2, vec![vec![1]]),
                 Rule::new(3, vec![vec![1]]),
             ],
+            calculated_entropy: None,
         },
         Pattern {
             id: 10,
@@ -109,6 +114,7 @@ fn dedup_and_count_patterns_works() {
             count: 1,
             contents: vec![vec![2]],
             rules: vec![Rule::new(0, vec![vec![1]])],
+            calculated_entropy: None,
         },
     ];
 
@@ -128,6 +134,8 @@ fn dedup_and_count_patterns_works() {
                 Rule::new(1, vec![vec![1]]),
                 Rule::new(3, vec![vec![1]]),
             ],
+            // The entropy values shouldn't have any effect in this particular test.
+            calculated_entropy: None,
         }
     );
 }

@@ -1,5 +1,6 @@
 [workspace]
 
+# For some reason Cargo really wanted me to specify the resolver. Didn't do this when I worked on the project last year, but oh well ╮(─▽─)╭.
 resolver = "2"
 
 members = [
