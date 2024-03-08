@@ -266,6 +266,11 @@ impl Wave {
 
         debug_assert!(!borrow.values.is_empty());
 
+        // !HUGE ISSUE!
+        // This is a very bad way to do this.
+        // The issue is that by choosing a value at random you are likely to choose
+        // a pattern value that breaks the whole collapse, causing it to error out.
+
         let choice = if self.flags.contains(&Flags::NoWeights) {
             borrow.values.choose(&mut rng).unwrap()
         } else {
@@ -296,7 +301,6 @@ impl Wave {
 
         // finish collapse!
         let choice_value = choice.clone();
-        std::mem::drop(choice);
         borrow.values.clear();
         borrow.values.push(choice_value);
 
