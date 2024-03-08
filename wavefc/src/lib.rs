@@ -239,16 +239,16 @@ impl Wave {
                 continue;
             }
 
-            let ent = element.entropy(self.patterns_total);
+            let entropy = element.entropy(self.patterns_total);
 
-            if ent == 0. {
+            if entropy == 0. {
                 continue;
             }
 
-            if ent > greatest_entropy {
-                greatest_entropy = ent;
+            if entropy > greatest_entropy {
+                greatest_entropy = entropy;
                 selected_elements = vec![i];
-            } else if ent == greatest_entropy {
+            } else if entropy == greatest_entropy {
                 selected_elements.push(i);
             }
         }
@@ -820,6 +820,7 @@ impl Wave {
 struct Pattern {
     id: usize,
     is_transform: bool,
+    /// Count is representative of the number of occurences a pattern had in the original source input.
     count: usize,
     contents: Vec<Vec<usize>>,
     rules: Vec<Rule>,
@@ -886,16 +887,31 @@ impl Element {
         Self { values, position }
     }
 
+    // I am conflicted as to whether this is the best way to implement entropy into the algorithm.
+    // Should entropy be embedded as a value in Element, itself? Would that be more efficient?
+    // How can I reduce the number of entropy calculations during each collapse cycle.
+    // The problem is that the entropy of the element changes during each collapse.
+    // However, elements that have already been collapsed will have a fixed entropy of 
+
+    // Copying patterns directly or having it passed is more efficient than simply giving a reference,
+    // as the reference size and argument size are equal at usize.
     fn entropy(&self, patterns_total: usize) -> f32 {
         if self.values.is_empty() {
-            return 0.;
+            return 0f32;
         }
 
         let mut total = 0f32;
 
+        // https://arc.net/l/quote/zqcrryti
         for pattern in self.values.iter() {
-            let prob = pattern.count as f32 / patterns_total as f32;
-            let entropy = prob * (1.0 / prob).log2();
+            // number of outcomes / total outcomes
+            let probability = pattern.count as f32 / patterns_total as f32;
+
+            // H(x) = -p*log2(p)
+            // https://youtu.be/YtebGVx-Fxw?si=RXElFTvCOnrsnct9
+            // Just graph this H(x) to get a better idea of how this works.
+            let entropy = probability * (probability).log2() * -1f32;
+
             total += entropy;
         }
 
