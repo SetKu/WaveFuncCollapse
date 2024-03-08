@@ -256,26 +256,51 @@ impl Wave {
         debug_assert!(!selected_elements.is_empty());
 
         let mut rng = thread_rng();
-        let selected_element = selected_elements.choose(&mut rng).unwrap();
+        let selected_element_index = selected_elements.choose(&mut rng).unwrap();
 
         if self.debug {
             println!("Chosen element to collapse.");
         }
 
-        let borrow = &mut self.elements[*selected_element];
+        // I believe this little code below has been VASTLY improved as of writing this. It now considers its choice of collapse value based on the possible pattern values that already surround the chosen collapse point. Thus, the algorithm isn't randomly decided a collapse and going through the huge amount of work necessary to propogate a collapse that was invalid to begin with.
+        // This shouldn't make the results of the collapse the same, though, as their is still the RNG (truly random or weighted random).
 
-        debug_assert!(!borrow.values.is_empty());
+        let element_position = self.elements[*selected_element_index].position.clone();
+        let neighbour_locations = noneg_neighbours(&element_position);
+        let mut neighbour_indexes: Vec<usize> = vec![];
 
-        // !HUGE ISSUE!
-        // This is a very bad way to do this.
-        // The issue is that by choosing a value at random you are likely to choose
-        // a pattern value that breaks the whole collapse, causing it to error out.
+        for neighbour_location in neighbour_locations {
+            for i in 0..self.elements.len() {
+                if self.elements[i].position == neighbour_location {
+                    neighbour_indexes.push(i);
+                }
+            }
+        }
+
+        let mut valid_values: Vec<Arc<Pattern>> = vec![];
+        
+        // Retains only pattern values that are present in all specified neighbour elements.
+        // Iterates through the neighbour indexes, initializing valid_values to the first neighbour's values.
+        // Then retains only values that are also present in each subsequent neighbour.
+        for (i, neighbour_index) in neighbour_indexes.iter().enumerate() {
+            if i == 0 {
+                valid_values = self.elements[*neighbour_index].values.clone();
+                continue;
+            }
+
+            valid_values.retain(|value| self.elements[*neighbour_index].values.contains(value));
+        }
+
+        let borrow = &mut self.elements[*selected_element_index];
+        let mut refined_values = borrow.values.clone();
+        refined_values.retain(|value| {
+            valid_values.contains(value)
+        });
 
         let choice = if self.flags.contains(&Flags::NoWeights) {
-            borrow.values.choose(&mut rng).unwrap()
+            refined_values.choose(&mut rng).unwrap()
         } else {
-            borrow
-                .values
+            refined_values
                 .choose_weighted(&mut rng, |v| v.count)
                 .unwrap()
         };
@@ -305,11 +330,23 @@ impl Wave {
         borrow.values.push(choice_value);
 
         // propogate changes
-        self.propagate(*selected_element);
+        self.propagate(*selected_element_index);
     }
 
+    /// Propagates pattern changes from a center element to its neighbours,
+    /// pruning invalid pattern values based on consistency with the rules
+    /// of the collapsed center element.
     pub fn propagate(&mut self, center_element: usize) {
         let center = &self.elements[center_element];
+
+        if center.values.is_empty() {
+            if self.debug {
+                println!("The collapse must have failed, because propogation was called on a center element that contains no values.");
+            }
+
+            return;
+        }
+
         let center_pos = center.position.clone();
 
         if self.debug {
@@ -339,7 +376,7 @@ impl Wave {
 
             if indexes.is_empty() {
                 // propagation finished!
-                
+
                 if self.debug {
                     println!("Finished propagating.");
                 }
