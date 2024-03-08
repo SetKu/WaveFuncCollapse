@@ -31,20 +31,14 @@ By default, the CLI uses the sea, land, coast example as Robert Heaton describes
 
 The CLI and core logic have been separated into two packages in the source: `wavefc-cli` and `wavefc`. To create your own custom adapters and write your own CLI, I recommend using the `wavefc-cli` source as a template and then building off of the `wavefc` types from there. During development, I personally found it beneficial to build and run in `--release` mode in Cargo. The build time difference between the two is negligible, and the actual collapse is much quicker in this optimized mode.
 
-The program requires that a width and height be provided to size the output from. Feel free to play around with these values to create differently shaped outputs. Please note that the larger the size of the output, the longer the function generally takes, as the chances for it to contradict itself increase. Theoretically, if the output size specified is lower than or equal to the sample's size, there exists a valid result. The output size specified must be a product of the tile size. Tile sizes are explored in the next paragraph.
-
-Trying a relatively large tile size compared to a tiny sample:
-
-<div align="center">
-  <img alt="Infinite Collapse Demo" src="https://i.postimg.cc/SR9gwMGr/Infinite.gif" width="85%" height="85%" style="border-radius:12px;"/>
-</div>
+The program requires that a width and height be provided to size the output from. Feel free to play around with these values to create differently shaped outputs. Please note that the larger the size of the output, the longer the function generally takes, as the chances for it to contradict itself increase (the chances of failure have significantly dropped past commit 1846f0f). Theoretically, if the output size specified is lower than or equal to the sample's size, there exists a valid result. The output size specified must be a product of the tile size. Tile sizes are explored in the next paragraph.
 
 In the version 1 and version 2 of `wavefc`, only the simple-tiled model was implemented for the algorithm. This severely limited its "creative" capabilities, creating rather dull outputs. In the current version of the algorithm, the overlapping-tiled model is used. This produces much better outputs and also more quickly in certain cases. Though, this model generally takes longer than the simple-tiled model. Luckily, the new overlapping logic is simply a more advanced superset of the original approach. This means that by specifying the tile size to be 1, you are essentially using the simple-tiled model.
 
-The way the algorithm chooses which tile (superposition) to collapse next is based on the Shannon Entropy of a particular location. This is calculated using the probabilities of each of the possible values occurence in the original sample. These are all taken together to form the collective entropy for a given superposition.
+The way the algorithm chooses which tile (superposition) to collapse next is based on the calculated entropy of a particular location. This is calculated using the probabilities of each of the possible values occurence in the original sample. These are all taken together to form the collective entropy for a given superposition.
 
 <div align="center">
-  <img src="https://latex.codecogs.com/png.image?\sum_{i=0}^{n}&space;p_i&space;\log_{2}({p_i})&space;" title="https://latex.codecogs.com/png.image?\sum_{i=0}^{n} p_i \log_{2}({p_i}) " />
+  <img src="https://latex.codecogs.com/png.image?\sum_{i=0}^{n}&space;p_i&space;\log_{2}({p_i})&space;" title="https://latex.codecogs.com/png.image?\sum_{i=0}^{n} -p_i \log_{2}({p_i}) "/>
 </div>
 
 The `wavefc` library is currently single-threaded, given the sequential nature of the algorithm. However, I do recognize that a lot of performance optimizations could be made by sprinkling in some multi-threading. This is a long-term goal for the project, at the moment. I'm eyeing `rayon` pretty frequently for this specific project.
