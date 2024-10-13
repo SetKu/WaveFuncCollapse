@@ -262,7 +262,7 @@ impl Wave {
             println!("Chosen element to collapse.");
         }
 
-        // I believe this little code below has been VASTLY improved as of writing this. It now considers its choice of collapse value based on the possible pattern values that already surround the chosen collapse point. Thus, the algorithm isn't randomly decided a collapse and going through the huge amount of work necessary to propogate a collapse that was invalid to begin with.
+        // I believe this little code below has been VASTLY improved as of writing this. It now considers its choice of collapse value based on the possible pattern values that already surround the chosen collapse point. Thus, the algorithm isn't randomly deciding a collapse value and going through the huge amount of code to propogate a collapse that was invalid to begin with.
         // This shouldn't make the results of the collapse the same, though, as their is still the RNG (truly random or weighted random).
 
         let element_position = self.elements[*selected_element_index].position.clone();
