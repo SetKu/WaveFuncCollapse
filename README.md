@@ -51,4 +51,4 @@ This project is available in two packages on [crates.io](https://crates.io): `wa
 
 A good place to start getting familiar with the source is `wavefc/src/lib.rs`, which holds the majority of the actual `Wave` code. To include this code in Rust, use the prelude with `use wavefc::prelude::*;`.
 
-Copyright © Zachary Morden 2022
+Copyright © Zachary Morden 2024
