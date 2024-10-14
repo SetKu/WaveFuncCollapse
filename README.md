@@ -3,10 +3,16 @@
 ![Rust](https://img.shields.io/badge/Rust-FA7343?style=for-the-badge&logo=rust&logoColor=white)
 ![Crates.io](https://img.shields.io/crates/v/wavefc?style=for-the-badge)
 
+> [!WARNING]
+> This project is no longer actively maintained. Beware of bugs.
+
+> [!NOTE]
+> In version 3.2.0, a massive performance improvement was introduced with the removal of randomized attempts. Now, only a single attempt is needed to perform a collapse. If you're using an older version, consider updating to take advantage.
+
 ## Character Map Demo
 
 <div align="center">
-  <img alt="Character Map Demo" src="https://i.postimg.cc/8cMKf69Y/Trimmed-2.gif" width="85%" height="85%" style="border-radius:12px;"/>
+  <img alt="Character Map Demo" src="https://i.imgur.com/il2KnjV.png" width="80%" style="border-radius:12px;"/>
 </div>
 
 ## Overview

@@ -106,7 +106,7 @@ pub fn handler(matches: &ArgMatches) -> Result<(), String> {
     let c_dur = c_start.elapsed();
 
     let result = wave.perfect_rep()?;
-    let string = reconstruct_string(result, &source_map, print, print);
+    let string = reconstruct_string(result, &source_map, true, print);
     println!("{}", string);
 
     if print {
