@@ -2,6 +2,9 @@
 
 ![Rust](https://img.shields.io/badge/Rust-FA7343?style=for-the-badge&logo=rust&logoColor=white)
 ![Crates.io](https://img.shields.io/crates/v/wavefc?style=for-the-badge)
+![Crates.io Downloads (recent)](https://img.shields.io/crates/dr/wavefc?style=for-the-badge)
+![Crates.io Downloads (version 3.2.0)](https://img.shields.io/crates/dv/wavefc/3.2.0?style=for-the-badge)
+![Crates.io Downloads (version 3.1.6)](https://img.shields.io/crates/dv/wavefc/3.1.6?style=for-the-badge)
 
 > [!WARNING]
 > This project is no longer actively maintained. Beware of bugs.
