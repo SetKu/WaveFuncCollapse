@@ -65,6 +65,22 @@ fn roll_works() {
 }
 
 #[test]
+fn roll_rectangular_grid() {
+    let input = vec![vec![0, 1, 2], vec![3, 4, 5]];
+    let cases = [
+        (true, false, vec![vec![2, 0, 1], vec![5, 3, 4]]),
+        (false, true, vec![vec![3, 4, 5], vec![0, 1, 2]]),
+        (true, true, vec![vec![5, 3, 4], vec![2, 0, 1]]),
+    ];
+
+    for (x_axis, y_axis, expected) in cases {
+        let mut array = input.clone();
+        roll(&mut array, 1, x_axis, y_axis);
+        assert_eq!(array, expected);
+    }
+}
+
+#[test]
 fn overlapping_adjacencies_works() {
     // row (y) -> col (x)
     let input = vec![
