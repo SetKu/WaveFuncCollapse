@@ -12,13 +12,14 @@ pub fn dimensions_of<T>(input: &Vec<Vec<T>>) -> Vector2<usize> {
     )
 }
 
-/// Shifts the given grid by the number of times specified along the different axis.
+/// Shifts the given grid by the number of times specified along the gives axis(es).
+/// Elements that overflow past a given axis will wrap around to the other side of the grid.
 ///
 /// # Arguments
 ///
-/// * `x_axis`: bool - whether it shifts along the x-axis (rows)
-/// * `y_axis`: bool - whether it shifts along the y-axis (cols)
-pub fn roll<T>(input: &mut Vec<Vec<T>>, shifts: usize, x_axis: bool, y_axis: bool)
+/// * `right`: bool - whether it shifts along the x-axis
+/// * `down`: bool - whether it shifts along the y-axis
+pub fn roll<T>(input: &mut Vec<Vec<T>>, shifts: usize, down: bool, right: bool)
 where
     T: Clone,
 {
@@ -32,16 +33,16 @@ where
                 let s_r: usize;
                 let s_c: usize;
 
-                // row
-                if y_axis {
-                    s_r = if i_r == 0 { input_size.y - 1 } else { i_r - 1 };
+                // Rows (vertical).
+                if right {
+                    s_r = if i_r == 0 { input_size.x - 1 } else { i_r - 1 };
                 } else {
                     s_r = i_r;
                 }
 
-                // column
-                if x_axis {
-                    s_c = if i_c == 0 { input_size.x - 1 } else { i_c - 1 };
+                // Columns (horizontal).
+                if down {
+                    s_c = if i_c == 0 { input_size.y - 1 } else { i_c - 1 };
                 } else {
                     s_c = i_c;
                 }
